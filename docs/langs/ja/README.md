@@ -18,286 +18,279 @@
 [![zh](https://img.shields.io/badge/lang-zh-gray.svg)](docs/langs/zh/README.md)
 [![he](https://img.shields.io/badge/lang-he-gray.svg)](docs/langs/he/README.md)
 
-> **[Preview]** Amazon SageMaker Unified Studio CI/CD CLI is currently in preview and is subject to change. Commands, configuration formats, and APIs may evolve based on customer feedback. We recommend evaluating this tool in non-production environments during preview. For feedback and bug reports, please open an issue https://github.com/aws/CICD-for-SageMakerUnifiedStudio/issues
+> **[プレビュー]** Amazon SageMaker Unified Studio CI/CD CLI は現在プレビュー中であり、変更される可能性があります。コマンド、設定フォーマット、API は顧客フィードバックに基づいて進化する可能性があります。プレビュー期間中は、本番環境以外での評価を推奨します。フィードバックやバグ報告については、https://github.com/aws/CICD-for-SageMakerUnifiedStudio/issues に issue を開いてください。
 
-> **[IAM + IdC Domains]** This CLI supports both IAM-based and IAM Identity Center (IdC)-based SMUS domains. For IdC domains, additional setup (VPC networking, Lake Formation permissions, inline IAM policies) may be required — see the setup scripts in each example directory.
+> **[IAM + IdC ドメイン]** この CLI は IAM ベースと IAM Identity Center (IdC) ベースの両方の SMUS ドメインをサポートしています。IdC ドメインの場合、追加のセットアップ（VPC ネットワーキング、Lake Formation パーミッション、インライン IAM ポリシー）が必要になる場合があります。各サンプルディレクトリのセットアップスクリプトを参照してください。
 
-**Automate deployment of data applications across SageMaker Unified Studio environments**
+**SageMaker Unified Studio 環境全体でデータアプリケーションのデプロイを自動化**
 
-Deploy Airflow DAGs, Jupyter notebooks, and ML workflows from development to production with confidence. Built for data scientists, data engineers, ML engineers, and GenAI app developers working with DevOps teams.
+Airflow DAG、Jupyter ノートブック、ML ワークフローを開発環境から本番環境まで自信を持ってデプロイできます。DevOps チームと協力するデータサイエンティスト、データエンジニア、ML エンジニア、GenAI アプリ開発者向けに構築されています。
 
-**Works with your deployment strategy:** Whether you use git branches (branch-based), versioned artifacts (bundle-based), git tags (tag-based), or direct deployment - this CLI supports your workflow. Define your application once, deploy it your way.
-
----
-
-
-## Why SMUS CI/CD CLI?
-
-✅ **AWS Abstraction Layer** - CLI encapsulates all AWS analytics, ML, and SMUS complexity - DevOps teams never call AWS APIs directly  
-✅ **Separation of Concerns** - Data teams define WHAT to deploy (manifest.yaml), DevOps teams define HOW and WHEN (CI/CD workflows)  
-✅ **Generic CI/CD Workflows** - Same workflow works for Glue, SageMaker, Bedrock, QuickSight, or any AWS service combination  
-✅ **Deploy with Confidence** - Pre-deployment dry-run validation and automated testing before production  
-✅ **Multi-Environment Management** - Test → Prod with environment-specific configuration  
-✅ **Infrastructure as Code** - Version-controlled application manifests and reproducible deployments  
-✅ **Event-Driven Workflows** - Trigger workflows automatically via EventBridge on deployment  
+**あなたのデプロイ戦略に対応:** git ブランチベース、バージョン管理されたアーティファクトベース（バンドルベース）、git タグベース、または直接デプロイのいずれを使用する場合でも、この CLI はあなたのワークフローをサポートします。アプリケーションを一度定義すれば、あなたの方法でデプロイできます。
 
 ---
 
+## なぜ SMUS CI/CD CLI なのか?
 
-## Quick Start
+✅ **AWS 抽象化レイヤー** - CLI が AWS アナリティクス、ML、SMUS の複雑さをすべてカプセル化 - DevOps チームが AWS API を直接呼び出すことはありません  
+✅ **関心の分離** - データチームは何をデプロイするかを定義し (manifest.yaml)、DevOps チームはどのように、いつデプロイするかを定義します (CI/CD ワークフロー)  
+✅ **汎用 CI/CD ワークフロー** - 同じワークフローが Glue、SageMaker、Bedrock、QuickSight、または任意の AWS サービスの組み合わせで機能します  
+✅ **自信を持ってデプロイ** - デプロイ前のドライラン検証と本番環境前の自動テスト  
+✅ **マルチ環境管理** - テスト → 本番環境への環境固有の設定  
+✅ **Infrastructure as Code** - バージョン管理されたアプリケーションマニフェストと再現可能なデプロイメント  
+✅ **イベント駆動ワークフロー** - デプロイ時に EventBridge 経由でワークフローを自動的にトリガー  
 
-**Install:**
+---
+
+## クイックスタート
+
+**インストール:**
 ```bash
 pip install aws-smus-cicd-cli
 ```
 
-**Deploy your first application:**
+**最初のアプリケーションをデプロイ:**
 ```bash
-# Validate configuration
+# 設定を検証
 aws-smus-cicd-cli describe --manifest manifest.yaml --connect
 
-# Create deployment bundle (optional)
+# デプロイバンドルを作成（オプション）
 aws-smus-cicd-cli bundle --manifest manifest.yaml
 
-# Preview deployment (dry run)
+# デプロイをプレビュー（ドライラン）
 aws-smus-cicd-cli deploy --targets test --manifest manifest.yaml --dry-run
 
-# Deploy to test environment
+# テスト環境にデプロイ
 aws-smus-cicd-cli deploy --targets test --manifest manifest.yaml
 
-# Run validation tests
+# 検証テストを実行
 aws-smus-cicd-cli test --manifest manifest.yaml --targets test
 
-# Clean up when done
+# 完了後にクリーンアップ
 aws-smus-cicd-cli destroy --manifest manifest.yaml --targets test --force
 ```
 
-**See it in action:** [Live GitHub Actions Example](https://github.com/aws/CICD-for-SageMakerUnifiedStudio/actions/runs/17631303500)
+**実際の動作を確認:** [GitHub Actions のライブ例](https://github.com/aws/CICD-for-SageMakerUnifiedStudio/actions/runs/17631303500)
 
 ---
 
+## 対象者
 
-## Who Is This For?
+### 👨‍💻 データチーム (データサイエンティスト、データエンジニア、GenAI アプリ開発者)
+**あなたが集中すること:** アプリケーション - 何をデプロイするか、どこにデプロイするか、どのように実行するか  
+**あなたが定義するもの:** アプリケーションマニフェスト (`manifest.yaml`) とコード、ワークフロー、設定  
+**知る必要がないこと:** CI/CD パイプライン、GitHub Actions、デプロイ自動化  
 
-### 👨‍💻 Data Teams (Data Scientists, Data Engineers, GenAI App Developers)
-**You focus on:** Your application - what to deploy, where to deploy, and how it runs  
-**You define:** Application manifest (`manifest.yaml`) with your code, workflows, and configurations  
-**You don't need to know:** CI/CD pipelines, GitHub Actions, deployment automation  
+→ **[クイックスタートガイド](docs/getting-started/quickstart.md)** - 10分で最初のアプリケーションをデプロイ  
 
-→ **[Quick Start Guide](docs/getting-started/quickstart.md)** - Deploy your first application in 10 minutes  
+**以下の例を含みます:**
+- データエンジニアリング (Glue、Notebooks、Athena)
+- ML ワークフロー (SageMaker、Notebooks)
+- GenAI アプリケーション (Bedrock、Notebooks)
 
-**Includes examples for:**
-- Data Engineering (Glue, Notebooks, Athena)
-- ML Workflows (SageMaker, Notebooks)
-- GenAI Applications (Bedrock, Notebooks)
+### 🔧 DevOps チーム
+**あなたが集中すること:** CI/CD ベストプラクティス、セキュリティ、コンプライアンス、デプロイ自動化  
+**あなたが定義するもの:** テスト、承認、プロモーションポリシーを強制するワークフローテンプレート  
+**知る必要がないこと:** アプリケーション固有の詳細、使用される AWS サービス、DataZone API、SMUS プロジェクト構造、ビジネスロジック  
 
-### 🔧 DevOps Teams
-**You focus on:** CI/CD best practices, security, compliance, and deployment automation  
-**You define:** Workflow templates that enforce testing, approvals, and promotion policies  
-**You don't need to know:** Application-specific details, AWS services used, DataZone APIs, SMUS project structures, or business logic  
+→ **[管理者ガイド](docs/getting-started/admin-quickstart.md)** - 15分でインフラストラクチャとパイプラインを設定  
+→ **[GitHub ワークフローテンプレート](git-templates/)** - 自動デプロイ用の汎用的で再利用可能なワークフローテンプレート
 
-→ **[Admin Guide](docs/getting-started/admin-quickstart.md)** - Configure infrastructure and pipelines in 15 minutes  
-→ **[GitHub Workflow Templates](git-templates/)** - Generic, reusable workflow templates for automated deployment
-
-**The CLI is your abstraction layer:** You just call `aws-smus-cicd-cli deploy` - the CLI handles all AWS service interactions (DataZone, Glue, Athena, SageMaker, MWAA, S3, IAM, etc.). Your workflows stay simple and generic.
-
----
-
-
-## What Can You Deploy?
-
-**📊 Analytics & BI**
-- Glue ETL jobs and crawlers
-- Athena queries
-- QuickSight dashboards
-- EMR jobs (future)
-- Redshift queries (future)
-
-**🤖 Machine Learning**
-- SageMaker training jobs
-- ML models and endpoints
-- MLflow experiments
-- Feature Store (future)
-- Batch transforms (future)
-
-**🧠 Generative AI**
-- Bedrock agents
-- Knowledge bases
-- Foundation model configurations (future)
-
-**📓 Code & Workflows**
-- Jupyter notebooks
-- Python scripts
-- Airflow DAGs (MWAA and Amazon MWAA Serverless)
-- Lambda functions (future)
-
-**💾 Data & Storage**
-- S3 data files
-- Git repositories
-- DataZone catalog resources (Glossaries, GlossaryTerms, FormTypes, AssetTypes, Assets, Data Products, Metadata Forms)
+**CLI が抽象化レイヤーです:** `aws-smus-cicd-cli deploy` を呼び出すだけで、CLI がすべての AWS サービスとのやり取り (DataZone、Glue、Athena、SageMaker、MWAA、S3、IAM など) を処理します。ワークフローはシンプルで汎用的なままです。
 
 ---
 
+## デプロイ可能なもの
 
-## Supported AWS Services
+**📊 分析 & BI**
+- Glue ETL ジョブとクローラー
+- Athena クエリ
+- QuickSight ダッシュボード
+- EMR ジョブ（今後対応予定）
+- Redshift クエリ（今後対応予定）
 
-Deploy workflows using these AWS services through Airflow YAML syntax:
+**🤖 機械学習**
+- SageMaker トレーニングジョブ
+- ML モデルとエンドポイント
+- MLflow 実験
+- Feature Store（今後対応予定）
+- バッチ変換（今後対応予定）
 
-### 🎯 Analytics & Data
+**🧠 生成 AI**
+- Bedrock エージェント
+- ナレッジベース
+- 基盤モデル設定（今後対応予定）
+
+**📓 コード & ワークフロー**
+- Jupyter ノートブック
+- Python スクリプト
+- Airflow DAG（MWAA および Amazon MWAA Serverless）
+- Lambda 関数（今後対応予定）
+
+**💾 データ & ストレージ**
+- S3 データファイル
+- Git リポジトリ
+- DataZone カタログリソース（用語集、用語集用語、フォームタイプ、アセットタイプ、アセット、データプロダクト、メタデータフォーム）
+
+---
+
+## サポートされているAWSサービス
+
+Airflow YAML構文を使用して、以下のAWSサービスを利用したワークフローをデプロイできます:
+
+### 🎯 分析とデータ
 **Amazon Athena** • **AWS Glue** • **Amazon EMR** • **Amazon Redshift** • **Amazon QuickSight** • **Lake Formation**
 
-### 🤖 Machine Learning  
+### 🤖 機械学習
 **SageMaker Training** • **SageMaker Pipelines** • **Feature Store** • **Model Registry** • **Batch Transform**
 
-### 🧠 Generative AI
+### 🧠 生成AI
 **Amazon Bedrock** • **Bedrock Agents** • **Bedrock Knowledge Bases** • **Guardrails**
 
-### 📊 Additional Services
+### 📊 その他のサービス
 S3 • Lambda • Step Functions • DynamoDB • RDS • SNS/SQS • Batch
 
-**See complete list:** [Airflow AWS Operators Reference](docs/airflow-aws-operators.md)
+**完全なリストはこちら:** [Airflow AWS Operators Reference](docs/airflow-aws-operators.md)
 
 ---
 
+## コア概念
 
-## Core Concepts
+### 関心の分離: 重要な設計原則
 
-### Separation of Concerns: The Key Design Principle
+**問題点:** 従来のデプロイアプローチでは、DevOps チームが AWS 分析サービス (Glue、Athena、DataZone、SageMaker、MWAA など) を学習し、SMUS プロジェクト構造を理解する必要があるか、データチームが CI/CD の専門家になる必要がありました。
 
-**The Problem:** Traditional deployment approaches force DevOps teams to learn AWS analytics services (Glue, Athena, DataZone, SageMaker, MWAA, etc.) and understand SMUS project structures, or force data teams to become CI/CD experts.
+**解決策:** SMUS CI/CD CLI は、すべての AWS と SMUS の複雑さをカプセル化する抽象化レイヤーです。
 
-**The Solution:** SMUS CI/CD CLI is the abstraction layer that encapsulates all AWS and SMUS complexity.
-
-**Example workflow:**
+**ワークフローの例:**
 
 ```
-1. DevOps Team                 2. Data Team                    3. SMUS CI/CD CLI (The Abstraction)
+1. DevOps チーム              2. データチーム                  3. SMUS CI/CD CLI (抽象化レイヤー)
    ↓                               ↓                              ↓
-Defines the PROCESS            Defines the CONTENT            Workflow calls:
-- Test on merge                - Glue jobs                    aws-smus-cicd-cli deploy --manifest manifest.yaml
-- Approval for prod            - SageMaker training             ↓
-- Security scans               - Athena queries               CLI handles ALL AWS complexity:
-- Notification rules           - File structure               - DataZone APIs
-                                                              - Glue/Athena/SageMaker APIs
-Defines INFRASTRUCTURE                                        - MWAA deployment
-- Account & region                                            - S3 management
-- IAM roles                                                   - IAM configuration
-- Resources                                                   - Infrastructure provisioning
+プロセスを定義                  コンテンツを定義                ワークフローの呼び出し:
+- マージ時のテスト              - Glue ジョブ                   aws-smus-cicd-cli deploy --manifest manifest.yaml
+- 本番環境の承認                - SageMaker トレーニング          ↓
+- セキュリティスキャン          - Athena クエリ                 CLI がすべての AWS の複雑さを処理:
+- 通知ルール                    - ファイル構造                  - DataZone API
+                                                              - Glue/Athena/SageMaker API
+インフラストラクチャを定義                                      - MWAA デプロイ
+- アカウントとリージョン                                        - S3 管理
+- IAM ロール                                                   - IAM 設定
+- リソース                                                     - インフラストラクチャのプロビジョニング
 
-Works for ANY app!
-No ML/Analytics/GenAI
-service knowledge needed!
+あらゆるアプリに対応!
+ML/Analytics/GenAI
+サービスの知識は不要!
 ```
 
-**DevOps teams focus on:**
-- CI/CD best practices (testing, approvals, notifications)
-- Security and compliance gates
-- Deployment orchestration
-- Monitoring and alerting
+**DevOps チームが注力すること:**
+- CI/CD のベストプラクティス (テスト、承認、通知)
+- セキュリティとコンプライアンスゲート
+- デプロイメントのオーケストレーション
+- モニタリングとアラート
 
-**SMUS CI/CD CLI handles ALL AWS complexity:**
-- DataZone domain and project management
-- AWS Glue, Athena, SageMaker, MWAA APIs
-- S3 storage and artifact management
-- IAM roles and permissions
-- Connection configurations
-- Catalog asset subscriptions
-- Workflow deployment to Airflow
-- Infrastructure provisioning
-- Testing and validation
+**SMUS CI/CD CLI がすべての AWS の複雑さを処理:**
+- DataZone ドメインとプロジェクト管理
+- AWS Glue、Athena、SageMaker、MWAA API
+- S3 ストレージとアーティファクト管理
+- IAM ロールと権限
+- 接続設定
+- カタログアセットのサブスクリプション
+- Airflow へのワークフローデプロイ
+- インフラストラクチャのプロビジョニング
+- テストと検証
 
-**Data teams focus on:**
-- Application code and workflows
-- Which AWS services to use (Glue, Athena, SageMaker, etc.)
-- Environment configurations
-- Business logic
+**データチームが注力すること:**
+- アプリケーションコードとワークフロー
+- 使用する AWS サービス (Glue、Athena、SageMaker など)
+- 環境設定
+- ビジネスロジック
 
-**Result:** 
-- **DevOps teams never call AWS APIs directly** - they just call `aws-smus-cicd-cli deploy`
-- **CI/CD workflows are generic** - same workflow works for Glue apps, SageMaker apps, or Bedrock apps
-- Data teams never touch CI/CD configs
-- Both teams work independently using their expertise
-
----
-
-### Application Manifest
-A declarative YAML file (`manifest.yaml`) that defines your data application:
-- **Application details** - Name, version, description
-- **Content** - Code from git repositories, data/models from storage, QuickSight dashboards
-- **Workflows** - Airflow DAGs for orchestration and automation
-- **Stages** - Where to deploy (dev, test, prod environments)
-- **Configuration** - Environment-specific settings, connections, and bootstrap actions
-
-**Created and owned by data teams.** Defines **what** to deploy and **where**. No CI/CD knowledge required.
-
-### Application
-Your data/analytics workload being deployed:
-- Airflow DAGs and Python scripts
-- Jupyter notebooks and data files
-- ML models and training code
-- ETL pipelines and transformations
-- GenAI agents and MCP servers
-- Foundation model configurations
-
-### Stage
-A deployment environment (dev, test, prod) mapped to a SageMaker Unified Studio project:
-- Domain and region configuration
-- Project name and settings
-- Resource connections (S3, Airflow, Athena, Glue)
-- Environment-specific parameters
-- Optional branch mapping for git-based deployments
-
-### Stage-to-Project Mapping
-
-Each application stage deploys to a dedicated SageMaker Unified Studio (SMUS) project. A project can host a single application or multiple applications depending on your architecture and CI/CD methodology. Stage projects are independent entities with their own governance:
-
-- **Ownership & Access:** Each stage project has its own set of owners and contributors, which may differ from the development project. Production projects typically have restricted access compared to development environments.
-- **Multi-Domain & Multi-Region:** Stage projects can belong to different SMUS domains, AWS accounts, and regions. For example, your dev stage might deploy to a development domain in us-east-1, while prod deploys to a production domain in eu-west-1.
-- **Flexible Architecture:** Organizations can choose between dedicated projects per application (isolation) or shared projects hosting multiple applications (consolidation), based on security, compliance, and operational requirements.
-
-This separation enables true environment isolation with independent access controls, compliance boundaries, and regional data residency requirements.
-
-### Workflow
-Orchestration logic that executes your application. Workflows serve two purposes:
-
-**1. Deployment-time:** Create required AWS resources during deployment
-- Provision infrastructure (S3 buckets, databases, IAM roles)
-- Configure connections and permissions
-- Set up monitoring and logging
-
-**2. Runtime:** Execute ongoing data and ML pipelines
-- Scheduled execution (daily, hourly, etc.)
-- Event-driven triggers (S3 uploads, API calls)
-- Data processing and transformations
-- Model training and inference
-
-Workflows are defined as Airflow DAGs (Directed Acyclic Graphs) in YAML format. Supports [MWAA (Managed Workflows for Apache Airflow)](https://aws.amazon.com/managed-workflows-for-apache-airflow/) and [Amazon MWAA Serverless](https://aws.amazon.com/blogs/big-data/introducing-amazon-mwaa-serverless/) ([User Guide](https://docs.aws.amazon.com/mwaa/latest/mwaa-serverless-userguide/what-is-mwaa-serverless.html)).
-
-### CI/CD Automation
-GitHub Actions workflows (or other CI/CD systems) that automate deployment:
-- **Created and owned by DevOps teams**
-- Defines **how** and **when** to deploy
-- Runs tests and quality gates
-- Manages promotion across targets
-- Enforces security and compliance policies
-- Example: `.github/workflows/deploy.yml`
-
-**Key insight:** DevOps teams create generic, reusable workflows that work for ANY application. They don't need to know if the app uses Glue, SageMaker, or Bedrock - the CLI handles all AWS service interactions. The workflow just calls `aws-smus-cicd-cli deploy` and the CLI does the rest.
-
-### Deployment Modes
-
-**Bundle-based (Artifact):** Create versioned archive → deploy archive to stages
-- Good for: audit trails, rollback capability, compliance
-- Command: `aws-smus-cicd-cli bundle` then `aws-smus-cicd-cli deploy --manifest app.tar.gz`
-
-**Direct (Git-based):** Deploy directly from sources without intermediate artifacts
-- Good for: simpler workflows, rapid iteration, git as source of truth
-- Command: `aws-smus-cicd-cli deploy --manifest manifest.yaml --targets test`
-
-Both modes work with any combination of storage and git content sources.
+**結果:** 
+- **DevOps チームは AWS API を直接呼び出さない** - `aws-smus-cicd-cli deploy` を呼び出すだけ
+- **CI/CD ワークフローは汎用的** - 同じワークフローが Glue アプリ、SageMaker アプリ、Bedrock アプリで機能
+- データチームは CI/CD 設定に触れない
+- 両チームがそれぞれの専門知識を活かして独立して作業
 
 ---
 
+### アプリケーションマニフェスト
+データアプリケーションを定義する宣言的な YAML ファイル (`manifest.yaml`):
+- **アプリケーション詳細** - 名前、バージョン、説明
+- **コンテンツ** - git リポジトリからのコード、ストレージからのデータ/モデル、QuickSight ダッシュボード
+- **ワークフロー** - オーケストレーションと自動化のための Airflow DAG
+- **ステージ** - デプロイ先 (dev、test、prod 環境)
+- **設定** - 環境固有の設定、接続、ブートストラップアクション
+
+**データチームが作成し所有します。** **何を**デプロイし、**どこに**デプロイするかを定義します。CI/CD の知識は不要です。
+
+### アプリケーション
+デプロイされるデータ/分析ワークロード:
+- Airflow DAG と Python スクリプト
+- Jupyter ノートブックとデータファイル
+- ML モデルとトレーニングコード
+- ETL パイプラインと変換処理
+- GenAI エージェントと MCP サーバー
+- 基盤モデルの設定
+
+### ステージ
+SageMaker Unified Studio プロジェクトにマッピングされたデプロイ環境 (dev、test、prod):
+- ドメインとリージョンの設定
+- プロジェクト名と設定
+- リソース接続 (S3、Airflow、Athena、Glue)
+- 環境固有のパラメータ
+- git ベースのデプロイのためのオプションのブランチマッピング
+
+### ステージからプロジェクトへのマッピング
+
+各アプリケーションステージは、専用の SageMaker Unified Studio (SMUS) プロジェクトにデプロイされます。プロジェクトは、アーキテクチャと CI/CD 手法に応じて、単一のアプリケーションまたは複数のアプリケーションをホストできます。ステージプロジェクトは、独自のガバナンスを持つ独立したエンティティです:
+
+- **所有権とアクセス:** 各ステージプロジェクトには独自の所有者と貢献者がおり、開発プロジェクトとは異なる場合があります。本番プロジェクトは通常、開発環境と比較してアクセスが制限されています。
+- **マルチドメインとマルチリージョン:** ステージプロジェクトは、異なる SMUS ドメイン、AWS アカウント、リージョンに属することができます。たとえば、dev ステージは us-east-1 の開発ドメインにデプロイし、prod は eu-west-1 の本番ドメインにデプロイする場合があります。
+- **柔軟なアーキテクチャ:** 組織は、セキュリティ、コンプライアンス、運用要件に基づいて、アプリケーションごとの専用プロジェクト (分離) または複数のアプリケーションをホストする共有プロジェクト (統合) を選択できます。
+
+この分離により、独立したアクセス制御、コンプライアンス境界、リージョンデータレジデンシー要件を持つ真の環境分離が可能になります。
+
+### ワークフロー
+アプリケーションを実行するオーケストレーションロジック。ワークフローには 2 つの目的があります:
+
+**1. デプロイ時:** デプロイ中に必要な AWS リソースを作成
+- インフラストラクチャのプロビジョニング (S3 バケット、データベース、IAM ロール)
+- 接続と権限の設定
+- モニタリングとロギングのセットアップ
+
+**2. ランタイム:** 継続的なデータと ML パイプラインを実行
+- スケジュール実行 (日次、時間単位など)
+- イベント駆動トリガー (S3 アップロード、API 呼び出し)
+- データ処理と変換
+- モデルのトレーニングと推論
+
+ワークフローは YAML 形式の Airflow DAG (Directed Acyclic Graphs) として定義されます。[MWAA (Managed Workflows for Apache Airflow)](https://aws.amazon.com/managed-workflows-for-apache-airflow/) と [Amazon MWAA Serverless](https://aws.amazon.com/blogs/big-data/introducing-amazon-mwaa-serverless/) ([ユーザーガイド](https://docs.aws.amazon.com/mwaa/latest/mwaa-serverless-userguide/what-is-mwaa-serverless.html)) をサポートしています。
+
+### CI/CD 自動化
+デプロイを自動化する GitHub Actions ワークフロー (または他の CI/CD システム):
+- **DevOps チームが作成し所有**
+- **どのように**、**いつ**デプロイするかを定義
+- テストと品質ゲートを実行
+- ターゲット間のプロモーションを管理
+- セキュリティとコンプライアンスポリシーを適用
+- 例: `.github/workflows/deploy.yml`
+
+**重要な洞察:** DevOps チームは、**あらゆる**アプリケーションで機能する汎用的で再利用可能なワークフローを作成します。アプリが Glue、SageMaker、Bedrock のどれを使用しているかを知る必要はありません - CLI がすべての AWS サービスとのやり取りを処理します。ワークフローは単に `aws-smus-cicd-cli deploy` を呼び出すだけで、CLI が残りを行います。
+
+### デプロイモード
+
+**バンドルベース (アーティファクト):** バージョン管理されたアーカイブを作成 → ステージにアーカイブをデプロイ
+- 適している用途: 監査証跡、ロールバック機能、コンプライアンス
+- コマンド: `aws-smus-cicd-cli bundle` の後に `aws-smus-cicd-cli deploy --manifest app.tar.gz`
+
+**ダイレクト (Git ベース):** 中間アーティファクトなしでソースから直接デプロイ
+- 適している用途: よりシンプルなワークフロー、迅速な反復、信頼できる情報源としての git
+- コマンド: `aws-smus-cicd-cli deploy --manifest manifest.yaml --targets test`
+
+両方のモードは、ストレージと git コンテンツソースの任意の組み合わせで機能します。
+
+---
 
 ## Example Applications
 
@@ -1176,67 +1169,66 @@ All setup scripts are idempotent and safe to run multiple times. Use `--dry-run`
 ---
 
 
-## Documentation
+## ドキュメント
 
-### Getting Started
-- **[Quick Start Guide](docs/getting-started/quickstart.md)** - Deploy your first application (10 min)
-- **[Admin Guide](docs/getting-started/admin-quickstart.md)** - Set up infrastructure (15 min)
+### はじめに
+- **[クイックスタートガイド](docs/getting-started/quickstart.md)** - 最初のアプリケーションをデプロイ (10分)
+- **[管理者ガイド](docs/getting-started/admin-quickstart.md)** - インフラストラクチャのセットアップ (15分)
 
-### Guides
-- **[Application Manifest](docs/manifest.md)** - Complete YAML configuration reference
-- **[CLI Commands](docs/cli-commands.md)** - All available commands and options
-- **[Rollback Guide](docs/rollback-guide.md)** - Recover from bad deployments and automate rollback
-- **[Bootstrap Actions](docs/bootstrap-actions.md)** - Automated deployment actions and event-driven workflows
-- **[Substitutions & Variables](docs/substitutions-and-variables.md)** - Dynamic configuration
-- **[Connections Guide](docs/connections.md)** - Configure AWS service integrations
-- **[GitHub Actions Integration](docs/github-actions-integration.md)** - CI/CD automation setup
-- **[GitHub Workflow Application Guide](docs/github-workflow-application-guide.md)** - Application admin guide for direct branch deployment
-- **[GitHub Workflow DevOps Guide](docs/github-workflow-devops-guide.md)** - DevOps guide for direct branch deployment
-- **[Deployment Metrics](docs/pipeline-deployment-metrics.md)** - Monitoring with EventBridge
-- **[Catalog Import/Export Guide](docs/catalog-import-export-guide.md)** - Promote DataZone catalog resources across environments
-- **[Catalog Import/Export Quick Reference](docs/catalog-import-export-quick-reference.md)** - Quick reference for catalog deployment
-- **[MCP Configuration](docs/mcp-configuration.md)** - MCP server configuration guide
-- **[Q CLI Conversation Examples](docs/q-cli-conversation-examples.md)** - Example conversations with Q CLI
+### ガイド
+- **[アプリケーションマニフェスト](docs/manifest.md)** - 完全な YAML 設定リファレンス
+- **[CLI コマンド](docs/cli-commands.md)** - 利用可能なすべてのコマンドとオプション
+- **[ロールバックガイド](docs/rollback-guide.md)** - 失敗したデプロイからの復旧とロールバックの自動化
+- **[ブートストラップアクション](docs/bootstrap-actions.md)** - 自動デプロイアクションとイベント駆動ワークフロー
+- **[置換と変数](docs/substitutions-and-variables.md)** - 動的な設定
+- **[接続ガイド](docs/connections.md)** - AWS サービス統合の設定
+- **[GitHub Actions 統合](docs/github-actions-integration.md)** - CI/CD 自動化のセットアップ
+- **[GitHub ワークフローアプリケーションガイド](docs/github-workflow-application-guide.md)** - ブランチ直接デプロイのためのアプリケーション管理者ガイド
+- **[GitHub ワークフロー DevOps ガイド](docs/github-workflow-devops-guide.md)** - ブランチ直接デプロイのための DevOps ガイド
+- **[デプロイメトリクス](docs/pipeline-deployment-metrics.md)** - EventBridge による監視
+- **[カタログインポート/エクスポートガイド](docs/catalog-import-export-guide.md)** - 環境間での DataZone カタログリソースのプロモート
+- **[カタログインポート/エクスポートクイックリファレンス](docs/catalog-import-export-quick-reference.md)** - カタログデプロイのクイックリファレンス
+- **[MCP 設定](docs/mcp-configuration.md)** - MCP サーバー設定ガイド
+- **[Q CLI 会話例](docs/q-cli-conversation-examples.md)** - Q CLI との会話例
 
-### Reference
-- **[Manifest Schema](docs/manifest-schema.md)** - YAML schema validation and structure
-- **[Airflow AWS Operators](docs/airflow-aws-operators.md)** - Custom operator reference
-- **[Airflow in SMUS CI/CD Summary](docs/airflow-smus-cicd-summary.md)** - Overview of Airflow's role in SMUS CI/CD
-- **[Architecture](docs/architecture.md)** - CLI architecture documentation
-- **[Pipeline Architecture Diagram](docs/pipeline-architecture-diagram.md)** - CI/CD pipeline architecture overview
+### リファレンス
+- **[マニフェストスキーマ](docs/manifest-schema.md)** - YAML スキーマ検証と構造
+- **[Airflow AWS オペレーター](docs/airflow-aws-operators.md)** - カスタムオペレーターリファレンス
+- **[SMUS CI/CD における Airflow の概要](docs/airflow-smus-cicd-summary.md)** - SMUS CI/CD における Airflow の役割の概要
+- **[アーキテクチャ](docs/architecture.md)** - CLI アーキテクチャドキュメント
+- **[パイプラインアーキテクチャ図](docs/pipeline-architecture-diagram.md)** - CI/CD パイプラインアーキテクチャの概要
 
-### Examples
-- **[Examples Guide](docs/examples-guide.md)** - Walkthrough of example applications
-- **[Data Notebooks](docs/examples-guide.md#-data-engineering---notebooks)** - Jupyter notebooks with Airflow
-- **[ML Training](docs/examples-guide.md#-machine-learning---training)** - SageMaker training with MLflow
-- **[ML Deployment](docs/examples-guide.md#-machine-learning---deployment)** - SageMaker endpoint deployment
-- **[QuickSight Dashboard](docs/examples-guide.md#-analytics---quicksight-dashboard)** - BI dashboards with Glue
-- **[GenAI Application](docs/examples-guide.md#-generative-ai)** - Bedrock agents and knowledge bases
+### 例
+- **[サンプルガイド](docs/examples-guide.md)** - サンプルアプリケーションのウォークスルー
+- **[データノートブック](docs/examples-guide.md#-data-engineering---notebooks)** - Airflow を使用した Jupyter ノートブック
+- **[ML トレーニング](docs/examples-guide.md#-machine-learning---training)** - MLflow を使用した SageMaker トレーニング
+- **[ML デプロイ](docs/examples-guide.md#-machine-learning---deployment)** - SageMaker エンドポイントのデプロイ
+- **[QuickSight ダッシュボード](docs/examples-guide.md#-analytics---quicksight-dashboard)** - Glue を使用した BI ダッシュボード
+- **[GenAI アプリケーション](docs/examples-guide.md#-generative-ai)** - Bedrock エージェントとナレッジベース
 
-### Development
-- **[Developer Guide](developer/developer-guide.md)** - Complete development guide with architecture, testing, and workflows
-- **[Development Guide](docs/development.md)** - Development workflows, testing, and contribution guidelines
-- **[PyPI Publishing](docs/pypi-publishing.md)** - PyPI publishing setup
-- **[AI Assistant Context](developer/AmazonQ.md)** - Context for AI assistants (Amazon Q, Kiro)
-- **[Tests Overview](tests/README.md)** - Testing infrastructure
+### 開発
+- **[開発者ガイド](developer/developer-guide.md)** - アーキテクチャ、テスト、ワークフローを含む完全な開発ガイド
+- **[開発ガイド](docs/development.md)** - 開発ワークフロー、テスト、コントリビューションガイドライン
+- **[PyPI 公開](docs/pypi-publishing.md)** - PyPI 公開のセットアップ
+- **[AI アシスタントコンテキスト](developer/AmazonQ.md)** - AI アシスタント (Amazon Q、Kiro) 用のコンテキスト
+- **[テスト概要](tests/README.md)** - テストインフラストラクチャ
 
-### Support
-- **Issues**: [GitHub Issues](https://github.com/aws/CICD-for-SageMakerUnifiedStudio/issues)
-- **Documentation**: [docs/](docs/)
-- **Examples**: [examples/](examples/)
+### サポート
+- **問題**: [GitHub Issues](https://github.com/aws/CICD-for-SageMakerUnifiedStudio/issues)
+- **ドキュメント**: [docs/](docs/)
+- **サンプル**: [examples/](examples/)
 
 ---
 
+## セキュリティに関する注意事項
 
-## Security Notice
-
-Always install from the official AWS PyPI package or source code.
+必ず公式の AWS PyPI パッケージまたはソースコードからインストールしてください。
 
 ```bash
-# ✅ Correct - Install from official AWS PyPI package
+# ✅ 正しい - 公式 AWS PyPI パッケージからインストール
 pip install aws-smus-cicd-cli
 
-# ✅ Also correct - Install from official AWS source code
+# ✅ こちらも正しい - 公式 AWS ソースコードからインストール
 git clone https://github.com/aws/CICD-for-SageMakerUnifiedStudio.git
 cd CICD-for-SageMakerUnifiedStudio
 pip install -e .
@@ -1244,16 +1236,13 @@ pip install -e .
 
 ---
 
+## ライセンス
 
-## License
-
-This project is licensed under the MIT-0 License. See [LICENSE](../../LICENSE) for details.
+このプロジェクトは MIT-0 ライセンスの下でライセンスされています。詳細は [LICENSE](../../LICENSE) を参照してください。
 
 ---
 
 <div align="center">
   <img src="docs/readme-qr-code.png" alt="Scan to view README" width="200"/>
-  <p><em>Scan QR code to view this README on GitHub</em></p>
+  <p><em>QR コードをスキャンして GitHub で README を表示</em></p>
 </div>
-
-

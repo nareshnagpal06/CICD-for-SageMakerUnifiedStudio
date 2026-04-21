@@ -8,7 +8,7 @@
 
 ← [Back to Main README](../../../README.md)
 
-# SMUS CI/CD Pipeline CLI
+# CLI per Pipeline CI/CD di SMUS
 
 [![en](https://img.shields.io/badge/lang-en-brightgreen.svg?style=for-the-badge)](README.md)
 [![pt](https://img.shields.io/badge/lang-pt-gray.svg)](docs/langs/pt/README.md)
@@ -18,286 +18,279 @@
 [![zh](https://img.shields.io/badge/lang-zh-gray.svg)](docs/langs/zh/README.md)
 [![he](https://img.shields.io/badge/lang-he-gray.svg)](docs/langs/he/README.md)
 
-> **[Preview]** Amazon SageMaker Unified Studio CI/CD CLI is currently in preview and is subject to change. Commands, configuration formats, and APIs may evolve based on customer feedback. We recommend evaluating this tool in non-production environments during preview. For feedback and bug reports, please open an issue https://github.com/aws/CICD-for-SageMakerUnifiedStudio/issues
+> **[Anteprima]** La CLI CI/CD di Amazon SageMaker Unified Studio è attualmente in anteprima ed è soggetta a modifiche. Comandi, formati di configurazione e API potrebbero evolversi in base al feedback dei clienti. Si consiglia di valutare questo strumento in ambienti non di produzione durante l'anteprima. Per feedback e segnalazioni di bug, si prega di aprire una issue su https://github.com/aws/CICD-for-SageMakerUnifiedStudio/issues
 
-> **[IAM + IdC Domains]** This CLI supports both IAM-based and IAM Identity Center (IdC)-based SMUS domains. For IdC domains, additional setup (VPC networking, Lake Formation permissions, inline IAM policies) may be required — see the setup scripts in each example directory.
+> **[Domini IAM + IdC]** Questa CLI supporta sia domini basati su IAM che domini basati su IAM Identity Center (IdC). Per i domini IdC, potrebbe essere necessaria una configurazione aggiuntiva (networking VPC, permessi Lake Formation, policy IAM inline) — vedere gli script di configurazione in ciascuna directory di esempio.
 
-**Automate deployment of data applications across SageMaker Unified Studio environments**
+**Automatizza il deployment di applicazioni dati attraverso gli ambienti di SageMaker Unified Studio**
 
-Deploy Airflow DAGs, Jupyter notebooks, and ML workflows from development to production with confidence. Built for data scientists, data engineers, ML engineers, and GenAI app developers working with DevOps teams.
+Distribuisci DAG Airflow, notebook Jupyter e workflow ML dallo sviluppo alla produzione con sicurezza. Progettato per data scientist, data engineer, ML engineer e sviluppatori di applicazioni GenAI che lavorano con team DevOps.
 
-**Works with your deployment strategy:** Whether you use git branches (branch-based), versioned artifacts (bundle-based), git tags (tag-based), or direct deployment - this CLI supports your workflow. Define your application once, deploy it your way.
-
----
-
-
-## Why SMUS CI/CD CLI?
-
-✅ **AWS Abstraction Layer** - CLI encapsulates all AWS analytics, ML, and SMUS complexity - DevOps teams never call AWS APIs directly  
-✅ **Separation of Concerns** - Data teams define WHAT to deploy (manifest.yaml), DevOps teams define HOW and WHEN (CI/CD workflows)  
-✅ **Generic CI/CD Workflows** - Same workflow works for Glue, SageMaker, Bedrock, QuickSight, or any AWS service combination  
-✅ **Deploy with Confidence** - Pre-deployment dry-run validation and automated testing before production  
-✅ **Multi-Environment Management** - Test → Prod with environment-specific configuration  
-✅ **Infrastructure as Code** - Version-controlled application manifests and reproducible deployments  
-✅ **Event-Driven Workflows** - Trigger workflows automatically via EventBridge on deployment  
+**Funziona con la tua strategia di deployment:** Che tu utilizzi branch git (basato su branch), artefatti versionati (basato su bundle), tag git (basato su tag) o deployment diretto - questa CLI supporta il tuo flusso di lavoro. Definisci la tua applicazione una volta, distribuiscila a modo tuo.
 
 ---
 
+## Perché SMUS CI/CD CLI?
 
-## Quick Start
+✅ **Livello di Astrazione AWS** - La CLI incapsula tutta la complessità di analytics, ML e SMUS di AWS - I team DevOps non chiamano mai direttamente le API AWS  
+✅ **Separazione delle Responsabilità** - I team dati definiscono COSA distribuire (manifest.yaml), i team DevOps definiscono COME e QUANDO (workflow CI/CD)  
+✅ **Workflow CI/CD Generici** - Lo stesso workflow funziona per Glue, SageMaker, Bedrock, QuickSight o qualsiasi combinazione di servizi AWS  
+✅ **Distribuzione con Sicurezza** - Validazione dry-run pre-distribuzione e test automatizzati prima della produzione  
+✅ **Gestione Multi-Ambiente** - Test → Prod con configurazione specifica per ambiente  
+✅ **Infrastructure as Code** - Manifest delle applicazioni versionati e distribuzioni riproducibili  
+✅ **Workflow Basati su Eventi** - Attivazione automatica dei workflow tramite EventBridge alla distribuzione  
 
-**Install:**
+---
+
+## Guida Rapida
+
+**Installazione:**
 ```bash
 pip install aws-smus-cicd-cli
 ```
 
-**Deploy your first application:**
+**Distribuisci la tua prima applicazione:**
 ```bash
-# Validate configuration
+# Valida la configurazione
 aws-smus-cicd-cli describe --manifest manifest.yaml --connect
 
-# Create deployment bundle (optional)
+# Crea il bundle di distribuzione (opzionale)
 aws-smus-cicd-cli bundle --manifest manifest.yaml
 
-# Preview deployment (dry run)
+# Anteprima della distribuzione (dry run)
 aws-smus-cicd-cli deploy --targets test --manifest manifest.yaml --dry-run
 
-# Deploy to test environment
+# Distribuisci nell'ambiente di test
 aws-smus-cicd-cli deploy --targets test --manifest manifest.yaml
 
-# Run validation tests
+# Esegui i test di validazione
 aws-smus-cicd-cli test --manifest manifest.yaml --targets test
 
-# Clean up when done
+# Pulisci quando hai finito
 aws-smus-cicd-cli destroy --manifest manifest.yaml --targets test --force
 ```
 
-**See it in action:** [Live GitHub Actions Example](https://github.com/aws/CICD-for-SageMakerUnifiedStudio/actions/runs/17631303500)
+**Guarda in azione:** [Esempio Live di GitHub Actions](https://github.com/aws/CICD-for-SageMakerUnifiedStudio/actions/runs/17631303500)
 
 ---
 
+## A Chi È Rivolto?
 
-## Who Is This For?
+### 👨‍💻 Team Dati (Data Scientist, Data Engineer, Sviluppatori di Applicazioni GenAI)
+**Ti concentri su:** La tua applicazione - cosa distribuire, dove distribuire e come viene eseguita  
+**Definisci:** Il manifest dell'applicazione (`manifest.yaml`) con il tuo codice, i workflow e le configurazioni  
+**Non hai bisogno di conoscere:** Pipeline CI/CD, GitHub Actions, automazione del deployment  
 
-### 👨‍💻 Data Teams (Data Scientists, Data Engineers, GenAI App Developers)
-**You focus on:** Your application - what to deploy, where to deploy, and how it runs  
-**You define:** Application manifest (`manifest.yaml`) with your code, workflows, and configurations  
-**You don't need to know:** CI/CD pipelines, GitHub Actions, deployment automation  
+→ **[Guida Rapida](docs/getting-started/quickstart.md)** - Distribuisci la tua prima applicazione in 10 minuti  
 
-→ **[Quick Start Guide](docs/getting-started/quickstart.md)** - Deploy your first application in 10 minutes  
-
-**Includes examples for:**
+**Include esempi per:**
 - Data Engineering (Glue, Notebooks, Athena)
-- ML Workflows (SageMaker, Notebooks)
-- GenAI Applications (Bedrock, Notebooks)
+- Workflow ML (SageMaker, Notebooks)
+- Applicazioni GenAI (Bedrock, Notebooks)
 
-### 🔧 DevOps Teams
-**You focus on:** CI/CD best practices, security, compliance, and deployment automation  
-**You define:** Workflow templates that enforce testing, approvals, and promotion policies  
-**You don't need to know:** Application-specific details, AWS services used, DataZone APIs, SMUS project structures, or business logic  
+### 🔧 Team DevOps
+**Ti concentri su:** Best practice CI/CD, sicurezza, conformità e automazione del deployment  
+**Definisci:** Template di workflow che applicano policy di testing, approvazioni e promozione  
+**Non hai bisogno di conoscere:** Dettagli specifici dell'applicazione, servizi AWS utilizzati, API DataZone, strutture di progetto SMUS o logica di business  
 
-→ **[Admin Guide](docs/getting-started/admin-quickstart.md)** - Configure infrastructure and pipelines in 15 minutes  
-→ **[GitHub Workflow Templates](git-templates/)** - Generic, reusable workflow templates for automated deployment
+→ **[Guida per Amministratori](docs/getting-started/admin-quickstart.md)** - Configura infrastruttura e pipeline in 15 minuti  
+→ **[Template di Workflow GitHub](git-templates/)** - Template di workflow generici e riutilizzabili per il deployment automatizzato
 
-**The CLI is your abstraction layer:** You just call `aws-smus-cicd-cli deploy` - the CLI handles all AWS service interactions (DataZone, Glue, Athena, SageMaker, MWAA, S3, IAM, etc.). Your workflows stay simple and generic.
+**La CLI è il tuo livello di astrazione:** Devi solo chiamare `aws-smus-cicd-cli deploy` - la CLI gestisce tutte le interazioni con i servizi AWS (DataZone, Glue, Athena, SageMaker, MWAA, S3, IAM, ecc.). I tuoi workflow rimangono semplici e generici.
 
 ---
 
-
-## What Can You Deploy?
+## Cosa Puoi Distribuire?
 
 **📊 Analytics & BI**
-- Glue ETL jobs and crawlers
-- Athena queries
-- QuickSight dashboards
-- EMR jobs (future)
-- Redshift queries (future)
+- Job ETL e crawler di Glue
+- Query di Athena
+- Dashboard di QuickSight
+- Job EMR (futuro)
+- Query di Redshift (futuro)
 
 **🤖 Machine Learning**
-- SageMaker training jobs
-- ML models and endpoints
-- MLflow experiments
-- Feature Store (future)
-- Batch transforms (future)
+- Job di training di SageMaker
+- Modelli ML ed endpoint
+- Esperimenti MLflow
+- Feature Store (futuro)
+- Trasformazioni batch (futuro)
 
 **🧠 Generative AI**
-- Bedrock agents
-- Knowledge bases
-- Foundation model configurations (future)
+- Agenti Bedrock
+- Knowledge base
+- Configurazioni di modelli fondazionali (futuro)
 
-**📓 Code & Workflows**
-- Jupyter notebooks
-- Python scripts
-- Airflow DAGs (MWAA and Amazon MWAA Serverless)
-- Lambda functions (future)
+**📓 Codice & Flussi di Lavoro**
+- Notebook Jupyter
+- Script Python
+- DAG Airflow (MWAA e Amazon MWAA Serverless)
+- Funzioni Lambda (futuro)
 
-**💾 Data & Storage**
-- S3 data files
-- Git repositories
-- DataZone catalog resources (Glossaries, GlossaryTerms, FormTypes, AssetTypes, Assets, Data Products, Metadata Forms)
+**💾 Dati & Storage**
+- File di dati S3
+- Repository Git
+- Risorse del catalogo DataZone (Glossari, Termini di Glossario, Tipi di Modulo, Tipi di Asset, Asset, Prodotti Dati, Moduli di Metadati)
 
 ---
 
+## Servizi AWS Supportati
 
-## Supported AWS Services
+Distribuisci flussi di lavoro utilizzando questi servizi AWS attraverso la sintassi YAML di Airflow:
 
-Deploy workflows using these AWS services through Airflow YAML syntax:
-
-### 🎯 Analytics & Data
+### 🎯 Analytics e Dati
 **Amazon Athena** • **AWS Glue** • **Amazon EMR** • **Amazon Redshift** • **Amazon QuickSight** • **Lake Formation**
 
 ### 🤖 Machine Learning  
 **SageMaker Training** • **SageMaker Pipelines** • **Feature Store** • **Model Registry** • **Batch Transform**
 
-### 🧠 Generative AI
+### 🧠 Intelligenza Artificiale Generativa
 **Amazon Bedrock** • **Bedrock Agents** • **Bedrock Knowledge Bases** • **Guardrails**
 
-### 📊 Additional Services
+### 📊 Servizi Aggiuntivi
 S3 • Lambda • Step Functions • DynamoDB • RDS • SNS/SQS • Batch
 
-**See complete list:** [Airflow AWS Operators Reference](docs/airflow-aws-operators.md)
+**Vedi l'elenco completo:** [Riferimento Operatori AWS di Airflow](docs/airflow-aws-operators.md)
 
 ---
 
+## Concetti Fondamentali
 
-## Core Concepts
+### Separazione delle Responsabilità: Il Principio di Design Chiave
 
-### Separation of Concerns: The Key Design Principle
+**Il Problema:** Gli approcci di deployment tradizionali costringono i team DevOps a imparare i servizi di analytics AWS (Glue, Athena, DataZone, SageMaker, MWAA, ecc.) e a comprendere le strutture dei progetti SMUS, oppure costringono i team dati a diventare esperti di CI/CD.
 
-**The Problem:** Traditional deployment approaches force DevOps teams to learn AWS analytics services (Glue, Athena, DataZone, SageMaker, MWAA, etc.) and understand SMUS project structures, or force data teams to become CI/CD experts.
+**La Soluzione:** SMUS CI/CD CLI è il livello di astrazione che incapsula tutta la complessità di AWS e SMUS.
 
-**The Solution:** SMUS CI/CD CLI is the abstraction layer that encapsulates all AWS and SMUS complexity.
-
-**Example workflow:**
+**Esempio di workflow:**
 
 ```
-1. DevOps Team                 2. Data Team                    3. SMUS CI/CD CLI (The Abstraction)
+1. Team DevOps                 2. Team Dati                    3. SMUS CI/CD CLI (L'Astrazione)
    ↓                               ↓                              ↓
-Defines the PROCESS            Defines the CONTENT            Workflow calls:
-- Test on merge                - Glue jobs                    aws-smus-cicd-cli deploy --manifest manifest.yaml
-- Approval for prod            - SageMaker training             ↓
-- Security scans               - Athena queries               CLI handles ALL AWS complexity:
-- Notification rules           - File structure               - DataZone APIs
-                                                              - Glue/Athena/SageMaker APIs
-Defines INFRASTRUCTURE                                        - MWAA deployment
-- Account & region                                            - S3 management
-- IAM roles                                                   - IAM configuration
-- Resources                                                   - Infrastructure provisioning
+Definisce il PROCESSO          Definisce il CONTENUTO         Il workflow chiama:
+- Test al merge                - Job Glue                     aws-smus-cicd-cli deploy --manifest manifest.yaml
+- Approvazione per prod        - Training SageMaker             ↓
+- Scansioni di sicurezza       - Query Athena                 La CLI gestisce TUTTA la complessità AWS:
+- Regole di notifica           - Struttura dei file           - API DataZone
+                                                              - API Glue/Athena/SageMaker
+Definisce l'INFRASTRUTTURA                                    - Deployment MWAA
+- Account e region                                            - Gestione S3
+- Ruoli IAM                                                   - Configurazione IAM
+- Risorse                                                     - Provisioning dell'infrastruttura
 
-Works for ANY app!
-No ML/Analytics/GenAI
-service knowledge needed!
+Funziona per QUALSIASI app!
+Non serve conoscenza dei servizi
+ML/Analytics/GenAI!
 ```
 
-**DevOps teams focus on:**
-- CI/CD best practices (testing, approvals, notifications)
-- Security and compliance gates
-- Deployment orchestration
-- Monitoring and alerting
+**I team DevOps si concentrano su:**
+- Best practice CI/CD (testing, approvazioni, notifiche)
+- Gate di sicurezza e conformità
+- Orchestrazione del deployment
+- Monitoraggio e alerting
 
-**SMUS CI/CD CLI handles ALL AWS complexity:**
-- DataZone domain and project management
-- AWS Glue, Athena, SageMaker, MWAA APIs
-- S3 storage and artifact management
-- IAM roles and permissions
-- Connection configurations
-- Catalog asset subscriptions
-- Workflow deployment to Airflow
-- Infrastructure provisioning
-- Testing and validation
+**SMUS CI/CD CLI gestisce TUTTA la complessità AWS:**
+- Gestione di domini e progetti DataZone
+- API AWS Glue, Athena, SageMaker, MWAA
+- Gestione dello storage S3 e degli artifact
+- Ruoli e permessi IAM
+- Configurazioni delle connessioni
+- Sottoscrizioni agli asset del catalogo
+- Deployment dei workflow su Airflow
+- Provisioning dell'infrastruttura
+- Testing e validazione
 
-**Data teams focus on:**
-- Application code and workflows
-- Which AWS services to use (Glue, Athena, SageMaker, etc.)
-- Environment configurations
-- Business logic
+**I team dati si concentrano su:**
+- Codice applicativo e workflow
+- Quali servizi AWS utilizzare (Glue, Athena, SageMaker, ecc.)
+- Configurazioni degli ambienti
+- Logica di business
 
-**Result:** 
-- **DevOps teams never call AWS APIs directly** - they just call `aws-smus-cicd-cli deploy`
-- **CI/CD workflows are generic** - same workflow works for Glue apps, SageMaker apps, or Bedrock apps
-- Data teams never touch CI/CD configs
-- Both teams work independently using their expertise
+**Risultato:** 
+- **I team DevOps non chiamano mai direttamente le API AWS** - chiamano solo `aws-smus-cicd-cli deploy`
+- **I workflow CI/CD sono generici** - lo stesso workflow funziona per app Glue, app SageMaker o app Bedrock
+- I team dati non toccano mai le configurazioni CI/CD
+- Entrambi i team lavorano in modo indipendente utilizzando le proprie competenze
 
 ---
 
-### Application Manifest
-A declarative YAML file (`manifest.yaml`) that defines your data application:
-- **Application details** - Name, version, description
-- **Content** - Code from git repositories, data/models from storage, QuickSight dashboards
-- **Workflows** - Airflow DAGs for orchestration and automation
-- **Stages** - Where to deploy (dev, test, prod environments)
-- **Configuration** - Environment-specific settings, connections, and bootstrap actions
+### Manifest dell'Applicazione
+Un file YAML dichiarativo (`manifest.yaml`) che definisce la tua applicazione dati:
+- **Dettagli dell'applicazione** - Nome, versione, descrizione
+- **Contenuto** - Codice da repository git, dati/modelli da storage, dashboard QuickSight
+- **Workflow** - DAG Airflow per orchestrazione e automazione
+- **Stage** - Dove effettuare il deploy (ambienti dev, test, prod)
+- **Configurazione** - Impostazioni specifiche per ambiente, connessioni e azioni di bootstrap
 
-**Created and owned by data teams.** Defines **what** to deploy and **where**. No CI/CD knowledge required.
+**Creato e gestito dai team dati.** Definisce **cosa** deployare e **dove**. Non richiede conoscenza di CI/CD.
 
-### Application
-Your data/analytics workload being deployed:
-- Airflow DAGs and Python scripts
-- Jupyter notebooks and data files
-- ML models and training code
-- ETL pipelines and transformations
-- GenAI agents and MCP servers
-- Foundation model configurations
+### Applicazione
+Il tuo carico di lavoro dati/analytics da deployare:
+- DAG Airflow e script Python
+- Notebook Jupyter e file di dati
+- Modelli ML e codice di training
+- Pipeline ETL e trasformazioni
+- Agenti GenAI e server MCP
+- Configurazioni di foundation model
 
 ### Stage
-A deployment environment (dev, test, prod) mapped to a SageMaker Unified Studio project:
-- Domain and region configuration
-- Project name and settings
-- Resource connections (S3, Airflow, Athena, Glue)
-- Environment-specific parameters
-- Optional branch mapping for git-based deployments
+Un ambiente di deployment (dev, test, prod) mappato a un progetto SageMaker Unified Studio:
+- Configurazione di dominio e region
+- Nome e impostazioni del progetto
+- Connessioni alle risorse (S3, Airflow, Athena, Glue)
+- Parametri specifici per ambiente
+- Mappatura opzionale dei branch per deployment basati su git
 
-### Stage-to-Project Mapping
+### Mappatura Stage-to-Project
 
-Each application stage deploys to a dedicated SageMaker Unified Studio (SMUS) project. A project can host a single application or multiple applications depending on your architecture and CI/CD methodology. Stage projects are independent entities with their own governance:
+Ogni stage dell'applicazione viene deployato su un progetto dedicato di SageMaker Unified Studio (SMUS). Un progetto può ospitare una singola applicazione o più applicazioni a seconda dell'architettura e della metodologia CI/CD. I progetti stage sono entità indipendenti con la propria governance:
 
-- **Ownership & Access:** Each stage project has its own set of owners and contributors, which may differ from the development project. Production projects typically have restricted access compared to development environments.
-- **Multi-Domain & Multi-Region:** Stage projects can belong to different SMUS domains, AWS accounts, and regions. For example, your dev stage might deploy to a development domain in us-east-1, while prod deploys to a production domain in eu-west-1.
-- **Flexible Architecture:** Organizations can choose between dedicated projects per application (isolation) or shared projects hosting multiple applications (consolidation), based on security, compliance, and operational requirements.
+- **Proprietà e Accesso:** Ogni progetto stage ha il proprio set di proprietari e contributori, che possono differire dal progetto di sviluppo. I progetti di produzione hanno tipicamente accesso limitato rispetto agli ambienti di sviluppo.
+- **Multi-Dominio e Multi-Region:** I progetti stage possono appartenere a diversi domini SMUS, account AWS e region. Ad esempio, il tuo stage dev potrebbe deployare su un dominio di sviluppo in us-east-1, mentre prod deploya su un dominio di produzione in eu-west-1.
+- **Architettura Flessibile:** Le organizzazioni possono scegliere tra progetti dedicati per applicazione (isolamento) o progetti condivisi che ospitano più applicazioni (consolidamento), in base ai requisiti di sicurezza, conformità e operativi.
 
-This separation enables true environment isolation with independent access controls, compliance boundaries, and regional data residency requirements.
+Questa separazione consente un vero isolamento degli ambienti con controlli di accesso indipendenti, confini di conformità e requisiti di residenza dei dati regionali.
 
 ### Workflow
-Orchestration logic that executes your application. Workflows serve two purposes:
+Logica di orchestrazione che esegue la tua applicazione. I workflow servono a due scopi:
 
-**1. Deployment-time:** Create required AWS resources during deployment
-- Provision infrastructure (S3 buckets, databases, IAM roles)
-- Configure connections and permissions
-- Set up monitoring and logging
+**1. Deployment-time:** Creare le risorse AWS necessarie durante il deployment
+- Provisioning dell'infrastruttura (bucket S3, database, ruoli IAM)
+- Configurare connessioni e permessi
+- Configurare monitoraggio e logging
 
-**2. Runtime:** Execute ongoing data and ML pipelines
-- Scheduled execution (daily, hourly, etc.)
-- Event-driven triggers (S3 uploads, API calls)
-- Data processing and transformations
-- Model training and inference
+**2. Runtime:** Eseguire pipeline dati e ML continuative
+- Esecuzione schedulata (giornaliera, oraria, ecc.)
+- Trigger event-driven (upload S3, chiamate API)
+- Elaborazione e trasformazioni dei dati
+- Training e inferenza dei modelli
 
-Workflows are defined as Airflow DAGs (Directed Acyclic Graphs) in YAML format. Supports [MWAA (Managed Workflows for Apache Airflow)](https://aws.amazon.com/managed-workflows-for-apache-airflow/) and [Amazon MWAA Serverless](https://aws.amazon.com/blogs/big-data/introducing-amazon-mwaa-serverless/) ([User Guide](https://docs.aws.amazon.com/mwaa/latest/mwaa-serverless-userguide/what-is-mwaa-serverless.html)).
+I workflow sono definiti come DAG Airflow (Directed Acyclic Graphs) in formato YAML. Supporta [MWAA (Managed Workflows for Apache Airflow)](https://aws.amazon.com/managed-workflows-for-apache-airflow/) e [Amazon MWAA Serverless](https://aws.amazon.com/blogs/big-data/introducing-amazon-mwaa-serverless/) ([Guida Utente](https://docs.aws.amazon.com/mwaa/latest/mwaa-serverless-userguide/what-is-mwaa-serverless.html)).
 
-### CI/CD Automation
-GitHub Actions workflows (or other CI/CD systems) that automate deployment:
-- **Created and owned by DevOps teams**
-- Defines **how** and **when** to deploy
-- Runs tests and quality gates
-- Manages promotion across targets
-- Enforces security and compliance policies
-- Example: `.github/workflows/deploy.yml`
+### Automazione CI/CD
+Workflow GitHub Actions (o altri sistemi CI/CD) che automatizzano il deployment:
+- **Creati e gestiti dai team DevOps**
+- Definisce **come** e **quando** deployare
+- Esegue test e quality gate
+- Gestisce la promozione tra i target
+- Applica policy di sicurezza e conformità
+- Esempio: `.github/workflows/deploy.yml`
 
-**Key insight:** DevOps teams create generic, reusable workflows that work for ANY application. They don't need to know if the app uses Glue, SageMaker, or Bedrock - the CLI handles all AWS service interactions. The workflow just calls `aws-smus-cicd-cli deploy` and the CLI does the rest.
+**Concetto chiave:** I team DevOps creano workflow generici e riutilizzabili che funzionano per QUALSIASI applicazione. Non hanno bisogno di sapere se l'app usa Glue, SageMaker o Bedrock - la CLI gestisce tutte le interazioni con i servizi AWS. Il workflow chiama semplicemente `aws-smus-cicd-cli deploy` e la CLI fa il resto.
 
-### Deployment Modes
+### Modalità di Deployment
 
-**Bundle-based (Artifact):** Create versioned archive → deploy archive to stages
-- Good for: audit trails, rollback capability, compliance
-- Command: `aws-smus-cicd-cli bundle` then `aws-smus-cicd-cli deploy --manifest app.tar.gz`
+**Basato su Bundle (Artifact):** Creare archivio versionato → deployare archivio sugli stage
+- Adatto per: audit trail, capacità di rollback, conformità
+- Comando: `aws-smus-cicd-cli bundle` poi `aws-smus-cicd-cli deploy --manifest app.tar.gz`
 
-**Direct (Git-based):** Deploy directly from sources without intermediate artifacts
-- Good for: simpler workflows, rapid iteration, git as source of truth
-- Command: `aws-smus-cicd-cli deploy --manifest manifest.yaml --targets test`
+**Diretto (Basato su Git):** Deployare direttamente dalle sorgenti senza artifact intermedi
+- Adatto per: workflow più semplici, iterazione rapida, git come fonte di verità
+- Comando: `aws-smus-cicd-cli deploy --manifest manifest.yaml --targets test`
 
-Both modes work with any combination of storage and git content sources.
+Entrambe le modalità funzionano con qualsiasi combinazione di sorgenti di contenuto storage e git.
 
 ---
-
 
 ## Example Applications
 
@@ -1176,67 +1169,66 @@ All setup scripts are idempotent and safe to run multiple times. Use `--dry-run`
 ---
 
 
-## Documentation
+## Documentazione
 
-### Getting Started
-- **[Quick Start Guide](docs/getting-started/quickstart.md)** - Deploy your first application (10 min)
-- **[Admin Guide](docs/getting-started/admin-quickstart.md)** - Set up infrastructure (15 min)
+### Guida introduttiva
+- **[Guida rapida](docs/getting-started/quickstart.md)** - Distribuisci la tua prima applicazione (10 min)
+- **[Guida per amministratori](docs/getting-started/admin-quickstart.md)** - Configura l'infrastruttura (15 min)
 
-### Guides
-- **[Application Manifest](docs/manifest.md)** - Complete YAML configuration reference
-- **[CLI Commands](docs/cli-commands.md)** - All available commands and options
-- **[Rollback Guide](docs/rollback-guide.md)** - Recover from bad deployments and automate rollback
-- **[Bootstrap Actions](docs/bootstrap-actions.md)** - Automated deployment actions and event-driven workflows
-- **[Substitutions & Variables](docs/substitutions-and-variables.md)** - Dynamic configuration
-- **[Connections Guide](docs/connections.md)** - Configure AWS service integrations
-- **[GitHub Actions Integration](docs/github-actions-integration.md)** - CI/CD automation setup
-- **[GitHub Workflow Application Guide](docs/github-workflow-application-guide.md)** - Application admin guide for direct branch deployment
-- **[GitHub Workflow DevOps Guide](docs/github-workflow-devops-guide.md)** - DevOps guide for direct branch deployment
-- **[Deployment Metrics](docs/pipeline-deployment-metrics.md)** - Monitoring with EventBridge
-- **[Catalog Import/Export Guide](docs/catalog-import-export-guide.md)** - Promote DataZone catalog resources across environments
-- **[Catalog Import/Export Quick Reference](docs/catalog-import-export-quick-reference.md)** - Quick reference for catalog deployment
-- **[MCP Configuration](docs/mcp-configuration.md)** - MCP server configuration guide
-- **[Q CLI Conversation Examples](docs/q-cli-conversation-examples.md)** - Example conversations with Q CLI
+### Guide
+- **[Manifest dell'applicazione](docs/manifest.md)** - Riferimento completo alla configurazione YAML
+- **[Comandi CLI](docs/cli-commands.md)** - Tutti i comandi e le opzioni disponibili
+- **[Guida al rollback](docs/rollback-guide.md)** - Recupera da distribuzioni non riuscite e automatizza il rollback
+- **[Azioni di bootstrap](docs/bootstrap-actions.md)** - Azioni di distribuzione automatizzate e flussi di lavoro basati su eventi
+- **[Sostituzioni e variabili](docs/substitutions-and-variables.md)** - Configurazione dinamica
+- **[Guida alle connessioni](docs/connections.md)** - Configura le integrazioni con i servizi AWS
+- **[Integrazione con GitHub Actions](docs/github-actions-integration.md)** - Configurazione dell'automazione CI/CD
+- **[Guida all'applicazione del workflow GitHub](docs/github-workflow-application-guide.md)** - Guida per amministratori di applicazioni per la distribuzione diretta da branch
+- **[Guida DevOps per il workflow GitHub](docs/github-workflow-devops-guide.md)** - Guida DevOps per la distribuzione diretta da branch
+- **[Metriche di distribuzione](docs/pipeline-deployment-metrics.md)** - Monitoraggio con EventBridge
+- **[Guida all'importazione/esportazione del catalogo](docs/catalog-import-export-guide.md)** - Promuovi le risorse del catalogo DataZone tra ambienti
+- **[Riferimento rapido per importazione/esportazione del catalogo](docs/catalog-import-export-quick-reference.md)** - Riferimento rapido per la distribuzione del catalogo
+- **[Configurazione MCP](docs/mcp-configuration.md)** - Guida alla configurazione del server MCP
+- **[Esempi di conversazione con Q CLI](docs/q-cli-conversation-examples.md)** - Esempi di conversazioni con Q CLI
 
-### Reference
-- **[Manifest Schema](docs/manifest-schema.md)** - YAML schema validation and structure
-- **[Airflow AWS Operators](docs/airflow-aws-operators.md)** - Custom operator reference
-- **[Airflow in SMUS CI/CD Summary](docs/airflow-smus-cicd-summary.md)** - Overview of Airflow's role in SMUS CI/CD
-- **[Architecture](docs/architecture.md)** - CLI architecture documentation
-- **[Pipeline Architecture Diagram](docs/pipeline-architecture-diagram.md)** - CI/CD pipeline architecture overview
+### Riferimenti
+- **[Schema del manifest](docs/manifest-schema.md)** - Validazione e struttura dello schema YAML
+- **[Operatori AWS per Airflow](docs/airflow-aws-operators.md)** - Riferimento agli operatori personalizzati
+- **[Riepilogo di Airflow in SMUS CI/CD](docs/airflow-smus-cicd-summary.md)** - Panoramica del ruolo di Airflow in SMUS CI/CD
+- **[Architettura](docs/architecture.md)** - Documentazione dell'architettura CLI
+- **[Diagramma dell'architettura della pipeline](docs/pipeline-architecture-diagram.md)** - Panoramica dell'architettura della pipeline CI/CD
 
-### Examples
-- **[Examples Guide](docs/examples-guide.md)** - Walkthrough of example applications
-- **[Data Notebooks](docs/examples-guide.md#-data-engineering---notebooks)** - Jupyter notebooks with Airflow
-- **[ML Training](docs/examples-guide.md#-machine-learning---training)** - SageMaker training with MLflow
-- **[ML Deployment](docs/examples-guide.md#-machine-learning---deployment)** - SageMaker endpoint deployment
-- **[QuickSight Dashboard](docs/examples-guide.md#-analytics---quicksight-dashboard)** - BI dashboards with Glue
-- **[GenAI Application](docs/examples-guide.md#-generative-ai)** - Bedrock agents and knowledge bases
+### Esempi
+- **[Guida agli esempi](docs/examples-guide.md)** - Procedura dettagliata delle applicazioni di esempio
+- **[Notebook di dati](docs/examples-guide.md#-data-engineering---notebooks)** - Notebook Jupyter con Airflow
+- **[Addestramento ML](docs/examples-guide.md#-machine-learning---training)** - Addestramento SageMaker con MLflow
+- **[Distribuzione ML](docs/examples-guide.md#-machine-learning---deployment)** - Distribuzione di endpoint SageMaker
+- **[Dashboard QuickSight](docs/examples-guide.md#-analytics---quicksight-dashboard)** - Dashboard BI con Glue
+- **[Applicazione GenAI](docs/examples-guide.md#-generative-ai)** - Agenti e knowledge base di Bedrock
 
-### Development
-- **[Developer Guide](developer/developer-guide.md)** - Complete development guide with architecture, testing, and workflows
-- **[Development Guide](docs/development.md)** - Development workflows, testing, and contribution guidelines
-- **[PyPI Publishing](docs/pypi-publishing.md)** - PyPI publishing setup
-- **[AI Assistant Context](developer/AmazonQ.md)** - Context for AI assistants (Amazon Q, Kiro)
-- **[Tests Overview](tests/README.md)** - Testing infrastructure
+### Sviluppo
+- **[Guida per sviluppatori](developer/developer-guide.md)** - Guida completa allo sviluppo con architettura, test e flussi di lavoro
+- **[Guida allo sviluppo](docs/development.md)** - Flussi di lavoro di sviluppo, test e linee guida per i contributi
+- **[Pubblicazione su PyPI](docs/pypi-publishing.md)** - Configurazione per la pubblicazione su PyPI
+- **[Contesto per assistenti AI](developer/AmazonQ.md)** - Contesto per assistenti AI (Amazon Q, Kiro)
+- **[Panoramica dei test](tests/README.md)** - Infrastruttura di test
 
-### Support
-- **Issues**: [GitHub Issues](https://github.com/aws/CICD-for-SageMakerUnifiedStudio/issues)
-- **Documentation**: [docs/](docs/)
-- **Examples**: [examples/](examples/)
+### Supporto
+- **Problemi**: [GitHub Issues](https://github.com/aws/CICD-for-SageMakerUnifiedStudio/issues)
+- **Documentazione**: [docs/](docs/)
+- **Esempi**: [examples/](examples/)
 
 ---
 
+## Avviso di Sicurezza
 
-## Security Notice
-
-Always install from the official AWS PyPI package or source code.
+Installa sempre dal pacchetto PyPI ufficiale di AWS o dal codice sorgente.
 
 ```bash
-# ✅ Correct - Install from official AWS PyPI package
+# ✅ Corretto - Installa dal pacchetto PyPI ufficiale di AWS
 pip install aws-smus-cicd-cli
 
-# ✅ Also correct - Install from official AWS source code
+# ✅ Anche corretto - Installa dal codice sorgente ufficiale di AWS
 git clone https://github.com/aws/CICD-for-SageMakerUnifiedStudio.git
 cd CICD-for-SageMakerUnifiedStudio
 pip install -e .
@@ -1244,16 +1236,13 @@ pip install -e .
 
 ---
 
+## Licenza
 
-## License
-
-This project is licensed under the MIT-0 License. See [LICENSE](../../LICENSE) for details.
+Questo progetto è concesso in licenza con la licenza MIT-0. Consulta [LICENSE](../../LICENSE) per i dettagli.
 
 ---
 
 <div align="center">
-  <img src="docs/readme-qr-code.png" alt="Scan to view README" width="200"/>
-  <p><em>Scan QR code to view this README on GitHub</em></p>
+  <img src="docs/readme-qr-code.png" alt="Scansiona per visualizzare il README" width="200"/>
+  <p><em>Scansiona il codice QR per visualizzare questo README su GitHub</em></p>
 </div>
-
-
