@@ -1,0 +1,30 @@
+# =============================================================================
+# MLOps Pipeline - Environment Configuration
+# =============================================================================
+# Used by: python3 scripts/load_env.py mlops
+# Exports environment variables needed by the manifest (per stage).
+# =============================================================================
+
+dev:
+  domain_name: Default_05052026_Domain
+  region: us-east-1
+  project_name: bank-mktg-dev
+  deployment_role: dataops-admin
+  account_id: "973414239152"
+  mlflow_server_name: bank-mktg-dev
+
+test:
+  domain_name: Default_05052026_Domain
+  region: us-east-1
+  project_name: bank-mktg-test
+  deployment_role: dataops-admin
+  account_id: "973414239152"
+  mlflow_server_name: bank-mktg-test
+
+prod:
+  domain_name: Default_05052026_Domain
+  region: us-east-1
+  project_name: bank-mktg-prod
+  deployment_role: dataops-admin
+  account_id: "973414239152"
+  mlflow_server_name: bank-mktg-prod
