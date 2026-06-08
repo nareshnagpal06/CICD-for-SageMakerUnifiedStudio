@@ -40,15 +40,40 @@ stages:
     stage: DEV
     domain:
       name: "${DEV_DOMAIN_NAME}"
-      region: "${DEV_REGION}"
+      region: ${DEV_DOMAIN_REGION}
     project:
-      name: "${DEV_PROJECT_NAME}"
-      create: false
+      name: ${DEV_PROJECT_NAME}
     environment_variables:
       ATHENA_DB_NAME: bank_mktg_dev
       ACCOUNT_ID: "${AWS_ACCOUNT_ID}"
-      PROJECT_ROLE: "${PROJECT_ROLE}"
-      PROJECT_ROLE_ARN: "arn:aws:iam::${AWS_ACCOUNT_ID}:role/${PROJECT_ROLE}"
+    bootstrap:
+      actions:
+        - type: datazone.create_environment
+          environment_configuration_name: 'Lakehouse Database'
+        - type: workflow.create
+          workflowName: data_pipeline
+    deployment_configuration:
+      storage:
+        - name: src
+          connectionName: default.s3_shared
+          targetDirectory: bank-mktg/data_pipeline/src
+        - name: workflows
+          connectionName: default.s3_shared
+          targetDirectory: bank-mktg/data_pipeline/workflows
+        - name: data
+          connectionName: default.s3_shared
+          targetDirectory: bank-mktg/data_pipeline/data
+
+  test:
+    stage: TEST
+    domain:
+      name: "${TEST_DOMAIN_NAME}"
+      region: ${TEST_DOMAIN_REGION}
+    project:
+      name: ${TEST_PROJECT_NAME}
+    environment_variables:
+      ATHENA_DB_NAME: bank_mktg_test
+      ACCOUNT_ID: "${AWS_ACCOUNT_ID}"
     bootstrap:
       actions:
         - type: datazone.create_environment
