@@ -5,6 +5,7 @@ on:
     branches:
       - main
       - test
+      - nanagpal-e2e-pipeline
     paths:
       - 'examples/end-to-end-data-ml-pipeline/examples/dataops-pipeline/**'
       - 'src/**'
