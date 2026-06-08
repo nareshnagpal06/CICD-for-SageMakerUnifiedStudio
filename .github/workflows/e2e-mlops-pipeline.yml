@@ -9,7 +9,7 @@ on:
     paths:
       - 'examples/end-to-end-data-ml-pipeline/examples/mlops-pipeline/**'
       - 'src/**'
-      - '.github/workflows/smus-direct-deploy.yml'
+      - '.github/workflows/smus-e2e-direct-deploy.yml'
       - '.github/workflows/e2e-mlops-pipeline.yml'
   workflow_dispatch:
 
@@ -19,7 +19,7 @@ permissions:
 
 jobs:
   deploy:
-    uses: ./.github/workflows/smus-direct-deploy.yml
+    uses: ./.github/workflows/smus-e2e-direct-deploy.yml
     secrets:
       AWS_ROLE_ARN_TEST: ${{ secrets.AWS_ROLE_ARN_DEV }}
     with:
