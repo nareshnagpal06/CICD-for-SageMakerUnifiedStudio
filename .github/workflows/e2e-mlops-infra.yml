@@ -27,7 +27,7 @@
 #                            POST to /repos/<owner>/<repo>/dispatches
 # =============================================================================
 
-name: End-to-End Data ML Pipeline - MLOps Infra Setup
+name: E2E MLOps Infra Setup
 
 on:
   workflow_dispatch:

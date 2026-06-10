@@ -1,4 +1,4 @@
-name: Deploy E2E DataOps Pipeline
+name: E2E Deploy DataOps Pipeline
 
 on:
   push:

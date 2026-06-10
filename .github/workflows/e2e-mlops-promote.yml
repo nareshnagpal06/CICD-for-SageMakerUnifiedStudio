@@ -56,7 +56,7 @@
 #   AWS_REGION            - Region (default us-east-1)
 # =============================================================================
 
-name: End-to-End Data ML Pipeline - MLOps Promotion (dev -> test -> prod)
+name: E2E MLOps Promotion (dev -> test -> prod)
 
 on:
   workflow_dispatch:

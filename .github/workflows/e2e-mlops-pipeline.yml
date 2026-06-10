@@ -1,4 +1,4 @@
-name: Deploy E2E MLOps Pipeline
+name: E2E Deploy MLOps Pipeline
 
 on:
   push:
