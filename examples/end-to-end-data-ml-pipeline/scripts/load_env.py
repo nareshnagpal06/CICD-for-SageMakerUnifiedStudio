@@ -28,13 +28,26 @@ import yaml
 
 
 def find_config(pipeline: str) -> Path:
-    """Locate the config YAML for the given pipeline."""
-    root = Path(os.environ.get("REPO_ROOT", ""))
-    if not root.is_dir():
-        root = Path(__file__).resolve().parent.parent
+    """Locate the config YAML for the given pipeline.
+
+    The config always lives under the example directory (two levels up from
+    this script): <example_dir>/examples/<pipeline>-pipeline/configs/<pipeline>.yaml.
+    Resolve relative to the script location so it works regardless of the
+    current working directory. REPO_ROOT may override the base, but only when
+    it is explicitly set to a non-empty value.
+    """
+    repo_root_env = os.environ.get("REPO_ROOT", "").strip()
+    example_dir = Path(__file__).resolve().parent.parent
+    root = Path(repo_root_env) if repo_root_env else example_dir
 
     config = root / "examples" / f"{pipeline}-pipeline" / "configs" / f"{pipeline}.yaml"
     if not config.is_file():
+        # Fall back to the script-relative location if REPO_ROOT pointed elsewhere.
+        fallback = (
+            example_dir / "examples" / f"{pipeline}-pipeline" / "configs" / f"{pipeline}.yaml"
+        )
+        if fallback.is_file():
+            return fallback
         print(f"❌ Config not found: {config}", file=sys.stderr)
         sys.exit(1)
     return config
