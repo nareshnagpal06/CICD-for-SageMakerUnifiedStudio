@@ -18,23 +18,25 @@
 #   - `if: always()` artifact capture: dump CloudWatch logs of the latest
 #     deploy processing job to a workflow artifact so postmortems don't need
 #     shell access.
-#   - GitHub Environments per stage (dev/test/prod) for OIDC roles, vars,
-#     and native required reviewers (the approval gate).
+#   - GitHub Environments per stage (dev/test/prod) for OIDC roles and vars.
 #
 # Flow:
 #   prepare       : pick the latest Approved model package ARN once
 #   deploy-dev    : describe -> run DAG -> monitor -> status check -> smoke
-#   deploy-test   : same shape, gated by `test` environment required reviewers
-#   deploy-prod   : same shape, gated by `prod` environment required reviewers
+#   approve-test  : manual approval gate (approvers from vars.MLOPS_APPROVERS)
+#   deploy-test   : same shape as dev, runs after approve-test
+#   approve-prod  : manual approval gate (approvers from vars.MLOPS_APPROVERS)
+#   deploy-prod   : same shape as dev, runs after approve-prod
 #
 # Approval gates:
-#   deploy-test and deploy-prod declare `environment: test` / `environment:
-#   prod`. Configure required reviewers on those environments in repo
-#   Settings -> Environments (or via the API). GitHub pauses the job until a
-#   required reviewer approves the deployment — native, audited, and with no
-#   third-party action or `issues:` permission. To require a different
-#   reviewer set for prod (e.g. release managers / compliance), edit the prod
-#   environment's reviewers.
+#   approve-test and approve-prod use `trstringer/manual-approval`, which
+#   reads the approver list from the MLOPS_APPROVERS GitHub Actions variable
+#   (a comma/newline-separated list of usernames). This keeps the approver set
+#   editable in one place (repo Settings -> Variables) and lets multiple org
+#   owners approve without touching each environment's settings. Set
+#   MLOPS_APPROVERS to e.g. `velpualvi,otherowner`. The action opens a
+#   tracking issue and pauses until one listed approver responds, so the repo
+#   must have Issues enabled and the workflow needs `issues: write`.
 #
 # Trigger: workflow_dispatch (choose start stage).
 #
@@ -90,6 +92,9 @@ on:
 permissions:
   id-token: write
   contents: read
+  # Required by trstringer/manual-approval: it opens a tracking issue and
+  # waits for a listed approver to respond before the deploy job proceeds.
+  issues: write
 
 env:
   WORKFLOW_NAME: deploy_pipeline
@@ -364,16 +369,47 @@ jobs:
           retention-days: 14
 
   # ── TEST ───────────────────────────────────────────────────────────────────
-  # Approval gate: native GitHub Environment required reviewers on the `test`
-  # environment (configured in repo Settings → Environments). The job pauses
-  # until a required reviewer approves the deployment — no third-party action
-  # or Issues permission needed.
-  deploy-test:
-    name: Deploy to TEST
+  # Approval gate: manual approval driven by the MLOPS_APPROVERS variable.
+  # approve-test pauses the pipeline until a listed approver responds; only
+  # then does deploy-test run.
+  approve-test:
+    name: Approve TEST deployment
     needs: [prepare, deploy-dev]
     if: |
       always() &&
       needs.prepare.result == 'success' &&
+      (
+        (needs.prepare.outputs.start_at == 'dev' && needs.deploy-dev.result == 'success') ||
+        needs.prepare.outputs.start_at == 'test'
+      )
+    runs-on: ubuntu-latest
+    steps:
+      - name: Await approval
+        uses: trstringer/manual-approval@v1
+        timeout-minutes: 1440
+        with:
+          secret: ${{ github.token }}
+          # Comma/newline-separated GitHub usernames. Falls back to velpualvi
+          # if the variable is unset so the gate never opens an empty approver
+          # list (which the action rejects).
+          approvers: ${{ vars.MLOPS_APPROVERS || 'velpualvi' }}
+          minimum-approvals: 1
+          issue-title: "Approve TEST deploy: model v${{ needs.prepare.outputs.model_package_version }}"
+          issue-body: >
+            Approve to deploy model package
+            `${{ needs.prepare.outputs.model_package_arn }}`
+            (version ${{ needs.prepare.outputs.model_package_version }}) to
+            the TEST environment. Reply `approved`, `approve`, `lgtm`, or `yes`
+            to proceed; `denied`, `deny`, or `no` to cancel.
+          exclude-workflow-initiator-as-approver: false
+
+  deploy-test:
+    name: Deploy to TEST
+    needs: [prepare, deploy-dev, approve-test]
+    if: |
+      always() &&
+      needs.prepare.result == 'success' &&
+      needs.approve-test.result == 'success' &&
       (
         (needs.prepare.outputs.start_at == 'dev' && needs.deploy-dev.result == 'success') ||
         needs.prepare.outputs.start_at == 'test'
@@ -496,16 +532,44 @@ jobs:
           retention-days: 14
 
   # ── PROD ───────────────────────────────────────────────────────────────────
-  # Approval gate: native GitHub Environment required reviewers on the `prod`
-  # environment (configured in repo Settings → Environments). Use a stricter
-  # reviewer set than test (e.g. release managers / compliance) by editing the
-  # prod environment's required reviewers.
-  deploy-prod:
-    name: Deploy to PROD
+  # Approval gate: manual approval driven by the MLOPS_APPROVERS variable.
+  # Use a separate variable here (e.g. PROD_APPROVERS) if prod needs a
+  # stricter reviewer set than test.
+  approve-prod:
+    name: Approve PROD deployment
     needs: [prepare, deploy-test]
     if: |
       always() &&
       needs.prepare.result == 'success' &&
+      (
+        ((needs.prepare.outputs.start_at == 'dev' || needs.prepare.outputs.start_at == 'test') && needs.deploy-test.result == 'success') ||
+        needs.prepare.outputs.start_at == 'prod'
+      )
+    runs-on: ubuntu-latest
+    steps:
+      - name: Await approval
+        uses: trstringer/manual-approval@v1
+        timeout-minutes: 1440
+        with:
+          secret: ${{ github.token }}
+          approvers: ${{ vars.MLOPS_APPROVERS || 'velpualvi' }}
+          minimum-approvals: 1
+          issue-title: "Approve PROD deploy: model v${{ needs.prepare.outputs.model_package_version }}"
+          issue-body: >
+            Approve to deploy model package
+            `${{ needs.prepare.outputs.model_package_arn }}`
+            (version ${{ needs.prepare.outputs.model_package_version }}) to
+            the PROD environment. Reply `approved`, `approve`, `lgtm`, or `yes`
+            to proceed; `denied`, `deny`, or `no` to cancel.
+          exclude-workflow-initiator-as-approver: false
+
+  deploy-prod:
+    name: Deploy to PROD
+    needs: [prepare, deploy-test, approve-prod]
+    if: |
+      always() &&
+      needs.prepare.result == 'success' &&
+      needs.approve-prod.result == 'success' &&
       (
         ((needs.prepare.outputs.start_at == 'dev' || needs.prepare.outputs.start_at == 'test') && needs.deploy-test.result == 'success') ||
         needs.prepare.outputs.start_at == 'prod'
