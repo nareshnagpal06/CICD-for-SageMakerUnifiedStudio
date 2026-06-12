@@ -13,11 +13,11 @@
 # =============================================================================
 
 dev:
-  domain_name: Default_05052026_Domain
+  domain_name: Default_02202026_Domain
   region: us-east-1
-  project_name: bank-mktg-dev
-  deployment_role: dataops-admin
-  account_id: "973414239152"
+  project_name: ml-dev
+  deployment_role: Admin-SMUSCLI
+  account_id: "688930149168"
 
 # test:
 #   domain_name: Default_05052026_Domain

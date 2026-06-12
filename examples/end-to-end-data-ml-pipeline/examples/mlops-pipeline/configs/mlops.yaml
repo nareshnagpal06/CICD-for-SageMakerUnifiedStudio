@@ -3,28 +3,31 @@
 # =============================================================================
 # Used by: python3 scripts/load_env.py mlops
 # Exports environment variables needed by the manifest (per stage).
+#
+# Keep these in sync with the GitHub repo/environment variables the deploy
+# workflows use (DEV_DOMAIN_NAME, *_PROJECT_NAME, AWS_ACCOUNT_ID, etc.).
 # =============================================================================
 
 dev:
-  domain_name: Default_05052026_Domain
+  domain_name: Default_02202026_Domain
   region: us-east-1
-  project_name: bank-mktg-dev
-  deployment_role: dataops-admin
-  account_id: "973414239152"
-  mlflow_server_name: bank-mktg-dev
+  project_name: ml-dev
+  deployment_role: Admin-SMUSCLI
+  account_id: "688930149168"
+  mlflow_server_name: smus-integration-mlflow-us-east-1
 
 test:
-  domain_name: Default_05052026_Domain
+  domain_name: Default_02202026_Domain
   region: us-east-1
-  project_name: bank-mktg-test
-  deployment_role: dataops-admin
-  account_id: "973414239152"
-  mlflow_server_name: bank-mktg-test
+  project_name: ml-test
+  deployment_role: Admin-SMUSCLI
+  account_id: "688930149168"
+  mlflow_server_name: smus-integration-mlflow-us-east-1
 
 prod:
-  domain_name: Default_05052026_Domain
+  domain_name: Default_02202026_Domain
   region: us-east-1
-  project_name: bank-mktg-prod
-  deployment_role: dataops-admin
-  account_id: "973414239152"
-  mlflow_server_name: bank-mktg-prod
+  project_name: ml-prod
+  deployment_role: Admin-SMUSCLI
+  account_id: "688930149168"
+  mlflow_server_name: smus-integration-mlflow-us-east-1
