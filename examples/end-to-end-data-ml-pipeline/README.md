@@ -24,16 +24,29 @@ You also need:
 
 - An AWS account with permissions for SageMaker, Glue, Athena, S3, IAM, and MWAA
 - A SageMaker Unified Studio domain and project with MWAA Serverless enabled
-- Environment variables configured for your target environment
+- Environment variables set for every stage the manifest defines
+
+These environment variables are the same values configured as GitHub repo/environment variables for CI (the source of truth). Set them in your shell for local runs:
 
 ```bash
 pip install aws-smus-cicd-cli
 
 export AWS_ACCOUNT_ID=<your-account-id>
+
+# DataOps example (dev stage only):
 export DEV_DOMAIN_NAME=<your-domain-name>
 export DEV_DOMAIN_REGION=<your-region>
-export DEV_PROJECT_NAME=<your-project-name>
-export PROJECT_ROLE=<your-login-role-name>
+export DEV_PROJECT_NAME=<your-dev-project>
+
+# MLOps example also validates test/prod, so additionally set:
+export TEST_DOMAIN_NAME=<your-domain-name>
+export TEST_DOMAIN_REGION=<your-region>
+export TEST_PROJECT_NAME=<your-test-project>
+export PROD_DOMAIN_NAME=<your-domain-name>
+export PROD_DOMAIN_REGION=<your-region>
+export PROD_PROJECT_NAME=<your-prod-project>
+export MLFLOW_TRACKING_SERVER_NAME=<your-mlflow-server-name>
+export MLFLOW_TRACKING_SERVER_ARN=arn:aws:sagemaker:<region>:<account-id>:mlflow-tracking-server/<your-mlflow-server-name>
 ```
 
 Each pipeline has its own README with detailed walkthroughs: [`examples/dataops-pipeline/README.md`](examples/dataops-pipeline/README.md) and [`examples/mlops-pipeline/README.md`](examples/mlops-pipeline/README.md).
@@ -109,13 +122,13 @@ flowchart TD
         DataOps[DataOps Pipelines]:::alert
     end
 
-    classDef input fill:#e1f5fe,stroke:#01579b,stroke-width:2px
-    classDef success fill:#e8f5e9,stroke:#2e7d32,stroke-width:2px
-    classDef warning fill:#fff3e0,stroke:#e65100,stroke-width:2px
-    classDef process fill:#f3e5f5,stroke:#7b1fa2,stroke-width:2px
-    classDef info fill:#e0f2f1,stroke:#00695c,stroke-width:2px
-    classDef hook fill:#e8eaf6,stroke:#3f51b5,stroke-width:2px
-    classDef alert fill:#fff8e1,stroke:#f9a825,stroke-width:2px
+    classDef input fill:#e1f5fe,stroke:#01579b,stroke-width:2px,color:#1a1a1a
+    classDef success fill:#e8f5e9,stroke:#2e7d32,stroke-width:2px,color:#1a1a1a
+    classDef warning fill:#fff3e0,stroke:#e65100,stroke-width:2px,color:#1a1a1a
+    classDef process fill:#f3e5f5,stroke:#7b1fa2,stroke-width:2px,color:#1a1a1a
+    classDef info fill:#e0f2f1,stroke:#00695c,stroke-width:2px,color:#1a1a1a
+    classDef hook fill:#e8eaf6,stroke:#3f51b5,stroke-width:2px,color:#1a1a1a
+    classDef alert fill:#fff8e1,stroke:#f9a825,stroke-width:2px,color:#1a1a1a
 
     style LocalRepo fill:transparent,stroke:#01579b,stroke-width:2px
     style CLI fill:transparent,stroke:#7b1fa2,stroke-width:2px
@@ -172,12 +185,12 @@ flowchart TD
 
     Deploy -.->|deployed per stage| Stages
 
-    classDef input fill:#e1f5fe,stroke:#01579b,stroke-width:2px
-    classDef process fill:#f3e5f5,stroke:#7b1fa2,stroke-width:2px
-    classDef success fill:#e8f5e9,stroke:#2e7d32,stroke-width:2px
-    classDef info fill:#e0f2f1,stroke:#00695c,stroke-width:2px
-    classDef hook fill:#e8eaf6,stroke:#3f51b5,stroke-width:2px
-    classDef alert fill:#fff8e1,stroke:#f9a825,stroke-width:2px
+    classDef input fill:#e1f5fe,stroke:#01579b,stroke-width:2px,color:#1a1a1a
+    classDef process fill:#f3e5f5,stroke:#7b1fa2,stroke-width:2px,color:#1a1a1a
+    classDef success fill:#e8f5e9,stroke:#2e7d32,stroke-width:2px,color:#1a1a1a
+    classDef info fill:#e0f2f1,stroke:#00695c,stroke-width:2px,color:#1a1a1a
+    classDef hook fill:#e8eaf6,stroke:#3f51b5,stroke-width:2px,color:#1a1a1a
+    classDef alert fill:#fff8e1,stroke:#f9a825,stroke-width:2px,color:#1a1a1a
 
     style DataOps fill:transparent,stroke:#01579b,stroke-width:2px
     style MLOps fill:transparent,stroke:#7b1fa2,stroke-width:2px
@@ -260,6 +273,24 @@ GitHub Actions workflows (at the repository root) automate multi-account deploym
 | Reusable Deploy | [`smus-e2e-direct-deploy.yml`](../../.github/workflows/smus-e2e-direct-deploy.yml) | Shared deploy workflow used by the pipelines above |
 
 CI/CD uses OIDC authentication with two-hop role assumption (no long-lived credentials). The MLOps training workflow provisions the EventBridge + Lambda deploy trigger in dev only — model approval happens in dev's registry and drives the promote cascade across stages.
+
+### GitHub variables (CI source of truth)
+
+The workflows read all configuration from GitHub Actions variables — there is no config file checked into the repo. Repo-level variables apply to every environment; environment-scoped variables are set per `dev`/`test`/`prod` environment.
+
+| Variable | Scope | Purpose |
+| -------- | ----- | ------- |
+| `AWS_REGION` | repo | Region for all stages (feeds `*_DOMAIN_REGION`) |
+| `DEV_DOMAIN_NAME` / `TEST_DOMAIN_NAME` / `PROD_DOMAIN_NAME` | repo | SMUS domain per stage |
+| `DEV_PROJECT_NAME` / `TEST_PROJECT_NAME` / `PROD_PROJECT_NAME` | repo | SMUS project per stage |
+| `MLOPS_APPROVERS` | repo | Promote-gate approver list (promote workflow) |
+| `AWS_ROLE_ARN` | environment | OIDC role assumed by the workflow |
+| `AWS_ACCOUNT_ID` | environment | Account for the stage |
+| `DEPLOYMENT_ROLE_NAME` | environment | Project role assumed for AWS calls |
+| `MLFLOW_TRACKING_SERVER_NAME` | environment | MLflow tracking server name |
+| `MLFLOW_TRACKING_SERVER_ARN` | environment | MLflow tracking server ARN |
+
+For local runs, export the equivalent values in your shell (see [Prerequisites](#prerequisites)).
 
 ## Documentation
 
