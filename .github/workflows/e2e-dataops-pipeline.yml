@@ -8,7 +8,7 @@ on:
     paths:
       - 'examples/end-to-end-data-ml-pipeline/examples/dataops-pipeline/**'
       - 'src/**'
-      - '.github/workflows/smus-e2e-direct-deploy.yml'
+      - '.github/workflows/smus-direct-deploy.yml'
       - '.github/workflows/e2e-dataops-pipeline.yml'
   workflow_dispatch:
 
@@ -18,8 +18,10 @@ permissions:
 
 jobs:
   deploy:
-    uses: ./.github/workflows/smus-e2e-direct-deploy.yml
+    uses: ./.github/workflows/smus-direct-deploy.yml
     with:
       manifest_path: 'examples/end-to-end-data-ml-pipeline/examples/dataops-pipeline/manifest.yaml'
       test_target: 'dev'
       skip_tests: true
+    secrets:
+      AWS_ROLE_ARN_TEST: ${{ secrets.AWS_ROLE_ARN_TEST }}
