@@ -24,4 +24,4 @@ jobs:
       test_target: 'dev'
       skip_tests: true
     secrets:
-      AWS_ROLE_ARN_TEST: ${{ secrets.AWS_ROLE_ARN_DEV }}
+      AWS_ROLE_ARN_TEST: ${{ secrets.AWS_ROLE_ARN_TEST }}
