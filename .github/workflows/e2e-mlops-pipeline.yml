@@ -96,7 +96,8 @@ jobs:
   # --------------------------------------------------------------------------
   deploy:
     name: Deploy
-    needs: prebuild
+    needs: [prebuild, setup-infra]
+    if: ${{ always() && needs.prebuild.result == 'success' && (needs.setup-infra.result == 'success' || needs.setup-infra.result == 'skipped') }}
     uses: ./.github/workflows/smus-direct-deploy.yml
     with:
       manifest_path: 'examples/end-to-end-data-ml-pipeline/examples/mlops-pipeline/manifest.yaml'
