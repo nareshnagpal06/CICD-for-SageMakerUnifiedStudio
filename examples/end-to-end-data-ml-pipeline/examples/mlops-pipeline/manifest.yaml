@@ -56,8 +56,8 @@ stages:
       ATHENA_DB_NAME: bank_mktg_dev
       EXPERIMENT_NAME: bank-mktg-experiments
       ENDPOINT_NAME: bank-mktg-prediction-dev
-      MLFLOW_TRACKING_SERVER_NAME: "${MLFLOW_TRACKING_SERVER_NAME}"
-      MLFLOW_TRACKING_SERVER_ARN: "${MLFLOW_TRACKING_SERVER_ARN}"
+      MLFLOW_TRACKING_SERVER_NAME: "${MLFLOW_TRACKING_SERVER_NAME:}"
+      MLFLOW_TRACKING_SERVER_ARN: "${MLFLOW_TRACKING_SERVER_ARN:}"
       MODEL_PACKAGE_ARN: "${MODEL_PACKAGE_ARN:none}"
       MODEL_DATA_URL_OVERRIDE: "${MODEL_DATA_URL_OVERRIDE:none}"
       GIT_COMMIT: "${GIT_COMMIT:unset}"
@@ -69,8 +69,8 @@ stages:
           name: mlflow-tracking
           connection_type: MLFLOW
           properties:
-            trackingServerArn: "${MLFLOW_TRACKING_SERVER_ARN}"
-            trackingServerName: "${MLFLOW_TRACKING_SERVER_NAME}"
+            trackingServerArn: "${MLFLOW_TRACKING_SERVER_ARN:}"
+            trackingServerName: "${MLFLOW_TRACKING_SERVER_NAME:}"
         - type: workflow.create
           workflowName: training_pipeline
         - type: workflow.create
@@ -89,15 +89,15 @@ stages:
     domain:
       tags:
         purpose: ${DOMAIN_TAG_PURPOSE:smus-cicd-testing}
-      region: ${TEST_DOMAIN_REGION}
+      region: ${TEST_DOMAIN_REGION:us-east-1}
     project:
       name: ${TEST_PROJECT_NAME:test-marketing}
     environment_variables:
       ATHENA_DB_NAME: bank_mktg_test
       EXPERIMENT_NAME: bank-mktg-experiments
       ENDPOINT_NAME: bank-mktg-prediction-test
-      MLFLOW_TRACKING_SERVER_NAME: "${MLFLOW_TRACKING_SERVER_NAME}"
-      MLFLOW_TRACKING_SERVER_ARN: "${MLFLOW_TRACKING_SERVER_ARN}"
+      MLFLOW_TRACKING_SERVER_NAME: "${MLFLOW_TRACKING_SERVER_NAME:}"
+      MLFLOW_TRACKING_SERVER_ARN: "${MLFLOW_TRACKING_SERVER_ARN:}"
       MODEL_PACKAGE_ARN: "${MODEL_PACKAGE_ARN:none}"
       MODEL_DATA_URL_OVERRIDE: "${MODEL_DATA_URL_OVERRIDE:none}"
       GIT_COMMIT: "${GIT_COMMIT:unset}"
@@ -109,8 +109,8 @@ stages:
           name: mlflow-tracking
           connection_type: MLFLOW
           properties:
-            trackingServerArn: "${MLFLOW_TRACKING_SERVER_ARN}"
-            trackingServerName: "${MLFLOW_TRACKING_SERVER_NAME}"
+            trackingServerArn: "${MLFLOW_TRACKING_SERVER_ARN:}"
+            trackingServerName: "${MLFLOW_TRACKING_SERVER_NAME:}"
         - type: workflow.create
           workflowName: deploy_pipeline
     deployment_configuration:
@@ -127,15 +127,15 @@ stages:
     domain:
       tags:
         purpose: ${DOMAIN_TAG_PURPOSE:smus-cicd-production}
-      region: ${PROD_DOMAIN_REGION}
+      region: ${PROD_DOMAIN_REGION:us-east-1}
     project:
       name: ${PROD_PROJECT_NAME:prod-marketing}
     environment_variables:
       ATHENA_DB_NAME: bank_mktg_prod
       EXPERIMENT_NAME: bank-mktg-experiments
       ENDPOINT_NAME: bank-mktg-prediction-prod
-      MLFLOW_TRACKING_SERVER_NAME: "${MLFLOW_TRACKING_SERVER_NAME}"
-      MLFLOW_TRACKING_SERVER_ARN: "${MLFLOW_TRACKING_SERVER_ARN}"
+      MLFLOW_TRACKING_SERVER_NAME: "${MLFLOW_TRACKING_SERVER_NAME:}"
+      MLFLOW_TRACKING_SERVER_ARN: "${MLFLOW_TRACKING_SERVER_ARN:}"
       MODEL_PACKAGE_ARN: "${MODEL_PACKAGE_ARN:none}"
       MODEL_DATA_URL_OVERRIDE: "${MODEL_DATA_URL_OVERRIDE:none}"
       GIT_COMMIT: "${GIT_COMMIT:unset}"
@@ -147,8 +147,8 @@ stages:
           name: mlflow-tracking
           connection_type: MLFLOW
           properties:
-            trackingServerArn: "${MLFLOW_TRACKING_SERVER_ARN}"
-            trackingServerName: "${MLFLOW_TRACKING_SERVER_NAME}"
+            trackingServerArn: "${MLFLOW_TRACKING_SERVER_ARN:}"
+            trackingServerName: "${MLFLOW_TRACKING_SERVER_NAME:}"
         - type: workflow.create
           workflowName: deploy_pipeline
     deployment_configuration:
