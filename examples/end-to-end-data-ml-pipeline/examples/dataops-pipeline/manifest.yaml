@@ -40,10 +40,10 @@ stages:
     stage: DEV
     domain:
       tags:
-        purpose: smus-cicd-testing
+        purpose: ${DOMAIN_TAG_PURPOSE:smus-cicd-testing}
       region: ${DEV_DOMAIN_REGION}
     project:
-      name: dev-marketing
+      name: ${DEV_PROJECT_NAME:dev-marketing}
       owners:
         - arn:aws:iam::${AWS_ACCOUNT_ID}:role/GitHubActionsRole-SMUS-CLI-Tests
     environment_variables:
