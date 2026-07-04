@@ -56,8 +56,8 @@ stages:
       ATHENA_DB_NAME: bank_mktg_dev
       EXPERIMENT_NAME: bank-mktg-experiments
       ENDPOINT_NAME: bank-mktg-prediction-dev
-      MLFLOW_TRACKING_SERVER_NAME: "${MLFLOW_TRACKING_SERVER_NAME:}"
-      MLFLOW_TRACKING_SERVER_ARN: "${MLFLOW_TRACKING_SERVER_ARN:}"
+      MLFLOW_TRACKING_SERVER_NAME: "${MLFLOW_TRACKING_SERVER_NAME:smus-integration-mlflow-us-east-1}"
+      MLFLOW_TRACKING_SERVER_ARN: "arn:aws:sagemaker:${DEV_DOMAIN_REGION}:${AWS_ACCOUNT_ID}:mlflow-tracking-server/${MLFLOW_TRACKING_SERVER_NAME:smus-integration-mlflow-us-east-1}"
       MODEL_PACKAGE_ARN: "${MODEL_PACKAGE_ARN:none}"
       MODEL_DATA_URL_OVERRIDE: "${MODEL_DATA_URL_OVERRIDE:none}"
       GIT_COMMIT: "${GIT_COMMIT:unset}"
@@ -69,8 +69,8 @@ stages:
           name: mlflow-tracking
           connection_type: MLFLOW
           properties:
-            trackingServerArn: "${MLFLOW_TRACKING_SERVER_ARN:}"
-            trackingServerName: "${MLFLOW_TRACKING_SERVER_NAME:}"
+            trackingServerArn: "arn:aws:sagemaker:${DEV_DOMAIN_REGION}:${AWS_ACCOUNT_ID}:mlflow-tracking-server/${MLFLOW_TRACKING_SERVER_NAME:smus-integration-mlflow-us-east-1}"
+            trackingServerName: "${MLFLOW_TRACKING_SERVER_NAME:smus-integration-mlflow-us-east-1}"
         - type: workflow.create
           workflowName: training_pipeline
         - type: workflow.create
@@ -96,8 +96,8 @@ stages:
       ATHENA_DB_NAME: bank_mktg_test
       EXPERIMENT_NAME: bank-mktg-experiments
       ENDPOINT_NAME: bank-mktg-prediction-test
-      MLFLOW_TRACKING_SERVER_NAME: "${MLFLOW_TRACKING_SERVER_NAME:}"
-      MLFLOW_TRACKING_SERVER_ARN: "${MLFLOW_TRACKING_SERVER_ARN:}"
+      MLFLOW_TRACKING_SERVER_NAME: "${MLFLOW_TRACKING_SERVER_NAME:smus-integration-mlflow-us-east-1}"
+      MLFLOW_TRACKING_SERVER_ARN: "arn:aws:sagemaker:${TEST_DOMAIN_REGION:us-east-1}:${AWS_ACCOUNT_ID}:mlflow-tracking-server/${MLFLOW_TRACKING_SERVER_NAME:smus-integration-mlflow-us-east-1}"
       MODEL_PACKAGE_ARN: "${MODEL_PACKAGE_ARN:none}"
       MODEL_DATA_URL_OVERRIDE: "${MODEL_DATA_URL_OVERRIDE:none}"
       GIT_COMMIT: "${GIT_COMMIT:unset}"
@@ -109,8 +109,8 @@ stages:
           name: mlflow-tracking
           connection_type: MLFLOW
           properties:
-            trackingServerArn: "${MLFLOW_TRACKING_SERVER_ARN:}"
-            trackingServerName: "${MLFLOW_TRACKING_SERVER_NAME:}"
+            trackingServerArn: "arn:aws:sagemaker:${TEST_DOMAIN_REGION:us-east-1}:${AWS_ACCOUNT_ID}:mlflow-tracking-server/${MLFLOW_TRACKING_SERVER_NAME:smus-integration-mlflow-us-east-1}"
+            trackingServerName: "${MLFLOW_TRACKING_SERVER_NAME:smus-integration-mlflow-us-east-1}"
         - type: workflow.create
           workflowName: deploy_pipeline
     deployment_configuration:
@@ -134,8 +134,8 @@ stages:
       ATHENA_DB_NAME: bank_mktg_prod
       EXPERIMENT_NAME: bank-mktg-experiments
       ENDPOINT_NAME: bank-mktg-prediction-prod
-      MLFLOW_TRACKING_SERVER_NAME: "${MLFLOW_TRACKING_SERVER_NAME:}"
-      MLFLOW_TRACKING_SERVER_ARN: "${MLFLOW_TRACKING_SERVER_ARN:}"
+      MLFLOW_TRACKING_SERVER_NAME: "${MLFLOW_TRACKING_SERVER_NAME:smus-integration-mlflow-us-east-1}"
+      MLFLOW_TRACKING_SERVER_ARN: "arn:aws:sagemaker:${PROD_DOMAIN_REGION:us-east-1}:${AWS_ACCOUNT_ID}:mlflow-tracking-server/${MLFLOW_TRACKING_SERVER_NAME:smus-integration-mlflow-us-east-1}"
       MODEL_PACKAGE_ARN: "${MODEL_PACKAGE_ARN:none}"
       MODEL_DATA_URL_OVERRIDE: "${MODEL_DATA_URL_OVERRIDE:none}"
       GIT_COMMIT: "${GIT_COMMIT:unset}"
@@ -147,8 +147,8 @@ stages:
           name: mlflow-tracking
           connection_type: MLFLOW
           properties:
-            trackingServerArn: "${MLFLOW_TRACKING_SERVER_ARN:}"
-            trackingServerName: "${MLFLOW_TRACKING_SERVER_NAME:}"
+            trackingServerArn: "arn:aws:sagemaker:${PROD_DOMAIN_REGION:us-east-1}:${AWS_ACCOUNT_ID}:mlflow-tracking-server/${MLFLOW_TRACKING_SERVER_NAME:smus-integration-mlflow-us-east-1}"
+            trackingServerName: "${MLFLOW_TRACKING_SERVER_NAME:smus-integration-mlflow-us-east-1}"
         - type: workflow.create
           workflowName: deploy_pipeline
     deployment_configuration:
