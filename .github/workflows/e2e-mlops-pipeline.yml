@@ -8,7 +8,7 @@ on:
     paths:
       - 'examples/end-to-end-data-ml-pipeline/examples/mlops-pipeline/**'
       - 'src/**'
-      - '.github/workflows/smus-e2e-direct-deploy.yml'
+      - '.github/workflows/smus-direct-deploy.yml'
       - '.github/workflows/e2e-mlops-pipeline.yml'
   workflow_dispatch:
     inputs:
@@ -18,26 +18,90 @@ on:
         default: "dev"
         type: choice
         options: [dev, test, prod]
+      setup_infra:
+        description: "Provision MLOps infra (EventBridge + Lambda deploy trigger)"
+        required: false
+        default: false
+        type: boolean
 
 permissions:
   id-token: write
   contents: read
 
 jobs:
-  # Deploy to the single environment chosen from the dispatch dropdown.
-  # Push events (no input) default to dev. The job runs inside the matching
-  # GitHub Environment so OIDC role + vars resolve per stage.
+  # --------------------------------------------------------------------------
+  # Job 1: Build sourcedir.tar.gz (training script + requirements.txt)
+  # --------------------------------------------------------------------------
+  prebuild:
+    name: Build Training Source Bundle
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Build sourcedir.tar.gz
+        run: |
+          echo "🔧 Building MLOps training source bundle..."
+          bash examples/end-to-end-data-ml-pipeline/scripts/build-mlops-sourcedir.sh
+
+      - name: Upload source bundle
+        uses: actions/upload-artifact@v4
+        with:
+          name: mlops-sourcedir-${{ github.run_id }}
+          path: examples/end-to-end-data-ml-pipeline/examples/mlops-pipeline/src/sourcedir.tar.gz
+          if-no-files-found: error
+
+  # --------------------------------------------------------------------------
+  # Job 2: Provision MLOps infra (EventBridge + Lambda deploy trigger)
+  #         Only runs on workflow_dispatch with setup_infra=true
+  # --------------------------------------------------------------------------
+  setup-infra:
+    name: Setup MLOps Infrastructure
+    runs-on: ubuntu-latest
+    if: ${{ inputs.setup_infra == true }}
+    environment: test-aws-account
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Configure AWS credentials
+        uses: aws-actions/configure-aws-credentials@v4
+        with:
+          role-to-assume: ${{ secrets.AWS_ROLE_ARN_TEST }}
+          aws-region: ${{ vars.DOMAIN_REGION }}
+          role-session-name: smus-mlops-infra-session
+
+      - name: Get AWS Account ID
+        id: aws-account
+        run: |
+          ACCOUNT_ID=$(aws sts get-caller-identity --query Account --output text)
+          echo "account-id=$ACCOUNT_ID" >> $GITHUB_OUTPUT
+          echo "✓ AWS Account ID: $ACCOUNT_ID"
+
+      - name: Provision MLOps infra
+        env:
+          GITHUB_REPO: ${{ github.repository }}
+        run: |
+          REGION="${{ vars.DOMAIN_REGION }}"
+          ACCOUNT_ID="${{ steps.aws-account.outputs.account-id }}"
+          PROJECT_NAME="bank-mktg-${{ inputs.environment || 'dev' }}"
+
+          echo "🚧 Provisioning MLOps infra for ${{ inputs.environment || 'dev' }}"
+          bash examples/end-to-end-data-ml-pipeline/scripts/setup-mlops-infra.sh \
+            "${{ inputs.environment || 'dev' }}" \
+            "$ACCOUNT_ID" \
+            "$REGION" \
+            "$PROJECT_NAME"
+
+  # --------------------------------------------------------------------------
+  # Job 3: Deploy using smus-direct-deploy (single-hop OIDC auth)
+  # --------------------------------------------------------------------------
   deploy:
-    uses: ./.github/workflows/smus-e2e-direct-deploy.yml
+    name: Deploy
+    needs: prebuild
+    uses: ./.github/workflows/smus-direct-deploy.yml
     with:
       manifest_path: 'examples/end-to-end-data-ml-pipeline/examples/mlops-pipeline/manifest.yaml'
       test_target: ${{ inputs.environment || 'dev' }}
       setup_mlflow: true
-      # Rebuild the training sourcedir.tar.gz (train script + requirements.txt)
-      # before deploy so the uploaded bundle is always in sync.
-      prebuild_script: 'examples/end-to-end-data-ml-pipeline/scripts/build-mlops-sourcedir.sh'
-      # Infra (EventBridge + Lambda deploy trigger) only belongs in dev:
-      # model approval happens in dev's registry and all stages share one
-      # account, so the trigger is a single account-scoped resource.
-      setup_infra: ${{ (inputs.environment || 'dev') == 'dev' }}
       skip_tests: true
+    secrets:
+      AWS_ROLE_ARN_TEST: ${{ secrets.AWS_ROLE_ARN_TEST }}
