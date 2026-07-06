@@ -93,7 +93,7 @@ stages:
     project:
       name: ${TEST_PROJECT_NAME:test-marketing}
       owners:
-        - arn:aws:iam::${AWS_ACCOUNT_ID}:role/GitHubActionsOIDCRole
+        - arn:aws:iam::${AWS_ACCOUNT_ID}:role/GitHubActionsRole-dev
     environment_variables:
       ATHENA_DB_NAME: bank_mktg_test
       EXPERIMENT_NAME: bank-mktg-experiments

@@ -228,6 +228,7 @@ The MLOps pipeline depends on DataOps — run DataOps first to create the `campa
 | ---- | ------- |
 | [`scripts/setup-mlops-infra.sh`](scripts/setup-mlops-infra.sh) | Event-driven deploy trigger (Lambda + EventBridge rule + IAM role) |
 | [`scripts/setup-github-oidc.sh`](scripts/setup-github-oidc.sh) | GitHub OIDC provider + IAM role for CI/CD |
+| [`scripts/grant-datazone-access.sh`](scripts/grant-datazone-access.sh) | Grant the deploy role domain-wide DataZone access (fixes `ListConnections` AccessDenied) |
 
 ### Setting up the event-driven deploy trigger
 
@@ -257,6 +258,51 @@ cd examples/end-to-end-data-ml-pipeline
 ```
 
 The script is idempotent — re-running it updates the existing Lambda code and configuration. **Re-run it after any change to the trigger logic** (it calls `update-function-code`), since the deployed Lambda does not update automatically. In CI this happens on every MLOps training run.
+
+### Troubleshooting: `ListConnections` AccessDenied during deploy
+
+When deploying to a stage other than `dev` (e.g. `test` or `prod`), the deploy step may fail with:
+
+```
+AccessDeniedException when calling ListConnections:
+User is not permitted to perform operation: ListConnections.
+❌ No S3 URI found for connection unknown (type: unknown)
+❌ Storage item 1: Failed
+📊 Total files deployed: 0
+❌ Error: Deployment failed due to errors during bundle deployment
+```
+
+**Cause.** The deploy role's DataZone permissions are scoped to a single project's resources (typically the `dev` project it was first set up for), so the same role can `ListConnections` on `dev-marketing` but is denied on a newly created `test-marketing` / `prod-marketing` project — **even when it is a project owner**. Project ownership alone is not enough; the IAM identity also needs `datazone` permission on the target project/connection resources. Because the CLI can't resolve the `default.s3_shared` connection's `s3Uri`, no files are uploaded.
+
+**Identify the actual deploy role first.** The role that makes the call is whatever `AWS_ROLE_ARN_TEST` (or the stage's `AWS_ROLE_ARN`) resolves to — not necessarily the role listed under `project.owners`. Read it from any job's identity output (the workflow logs `aws sts get-caller-identity`), e.g. `arn:aws:sts::<account>:assumed-role/GitHubActionsRole-dev/...` means the role is `GitHubActionsRole-dev`. Grant the fix to **that** role.
+
+**Fix.** Grant the deploy role DataZone access at the **domain** level (covers every project in the domain) with the helper script. It attaches an additive, least-privilege inline IAM policy — it does not modify the role's existing policies. The policy uses a `domain/*` resource wildcard because DataZone authorizes connection actions against sub-resource ARNs (`…:domain/<domainId>/connection/<id>`) that an exact `domain/<domainId>` ARN does not match:
+
+```bash
+cd examples/end-to-end-data-ml-pipeline
+
+# Args: <role-name> <account-id> <region> <domain-id>
+# Use the role from get-caller-identity above (e.g. GitHubActionsRole-dev).
+./scripts/grant-datazone-access.sh \
+  GitHubActionsRole-dev "$AWS_ACCOUNT_ID" "$DOMAIN_REGION" "$DOMAIN_ID"
+```
+
+Find the domain id (`dzd-...`) from the deploy logs (`domain_id=dzd-...`) or with:
+
+```bash
+aws datazone list-domains --region "$DOMAIN_REGION" \
+  --query "items[].{name:name,id:id}" --output table
+```
+
+The script is idempotent. After it runs, re-trigger the deploy — `ListConnections` will succeed for all projects in the domain. Verify the policy with:
+
+```bash
+aws iam get-role-policy \
+  --role-name GitHubActionsOIDCRole \
+  --policy-name SmusDataZoneDomainDeployAccess
+```
+
+> The manifest also lists the deploy role under each stage's `project.owners`, which makes it a project owner. Ownership and the domain IAM grant are complementary: ownership establishes membership, the IAM policy authorizes the `datazone` API calls.
 
 Once provisioned, the rule is `ENABLED` immediately. Approving a model version in `bank-mktg-prediction-models` then triggers the dev → test → prod promote cascade through GitHub Actions. See [Deploy trigger behavior](#deploy-trigger-behavior) for how the trigger handles approvals and avoids re-deploy loops.
 
@@ -327,6 +373,7 @@ For local runs, export the equivalent values in your shell (see [Prerequisites](
 └── scripts/                           # Setup and helper scripts
     ├── setup-mlops-infra.sh           # EventBridge + Lambda deploy trigger
     ├── setup-github-oidc.sh           # GitHub OIDC provider + IAM role
+    ├── grant-datazone-access.sh       # Grant deploy role domain-wide DataZone access
     ├── build-mlops-sourcedir.sh       # Build training sourcedir.tar.gz
     ├── mlops_helper.py                # Deploy status / smoke-test helpers
     └── test-deploy-trigger-event.json # Sample EventBridge event for testing
