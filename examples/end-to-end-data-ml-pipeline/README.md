@@ -263,7 +263,7 @@ The script is idempotent — re-running it updates the existing Lambda code and 
 
 When deploying to a stage other than `dev` (e.g. `test` or `prod`), the deploy step may fail with:
 
-```
+```text
 AccessDeniedException when calling ListConnections:
 User is not permitted to perform operation: ListConnections.
 ❌ No S3 URI found for connection unknown (type: unknown)
@@ -272,37 +272,42 @@ User is not permitted to perform operation: ListConnections.
 ❌ Error: Deployment failed due to errors during bundle deployment
 ```
 
-**Cause.** The deploy role's DataZone permissions are scoped to a single project's resources (typically the `dev` project it was first set up for), so the same role can `ListConnections` on `dev-marketing` but is denied on a newly created `test-marketing` / `prod-marketing` project — **even when it is a project owner**. Project ownership alone is not enough; the IAM identity also needs `datazone` permission on the target project/connection resources. Because the CLI can't resolve the `default.s3_shared` connection's `s3Uri`, no files are uploaded.
+**Cause.** `ListConnections` is a project-scoped DataZone operation: the calling role must be a **member of the target project** to list its connections. The deploy role is a member of `dev-marketing` (so `dev` works), but a newly created `test-marketing` / `prod-marketing` project has no such membership, so DataZone denies `ListConnections` there. The deploy tries to add the owner listed in `project.owners`, but that call (`CreateProjectMembership`) is itself denied for the deploy role (non-fatal in the logs), so the pipeline **cannot self-heal** — an admin has to establish the membership once. Because the connection can't be listed, the CLI can't resolve `default.s3_shared`'s `s3Uri` and 0 files are uploaded.
 
-**Identify the actual deploy role first.** The role that makes the call is whatever `AWS_ROLE_ARN_TEST` (or the stage's `AWS_ROLE_ARN`) resolves to — not necessarily the role listed under `project.owners`. Read it from any job's identity output (the workflow logs `aws sts get-caller-identity`), e.g. `arn:aws:sts::<account>:assumed-role/GitHubActionsRole-dev/...` means the role is `GitHubActionsRole-dev`. Grant the fix to **that** role.
+> Note: the manifest `owners` field is aspirational here — the deploy role usually lacks `datazone:CreateProjectMembership`, so listing a role under `owners` does **not** by itself make it a member. Membership must be established out of band (this is why `dev` already works).
 
-**Fix.** Grant the deploy role DataZone access at the **domain** level (covers every project in the domain) with the helper script. It attaches an additive, least-privilege inline IAM policy — it does not modify the role's existing policies. The policy uses a `domain/*` resource wildcard because DataZone authorizes connection actions against sub-resource ARNs (`…:domain/<domainId>/connection/<id>`) that an exact `domain/<domainId>` ARN does not match:
+**Identify the actual deploy role first.** The role that makes the call is whatever `AWS_ROLE_ARN_TEST` (or the stage's `AWS_ROLE_ARN`) resolves to — **not** necessarily the role under `project.owners`. Read it from any job's identity output (the workflow logs `aws sts get-caller-identity`): `arn:aws:sts::<account>:assumed-role/GitHubActionsRole-dev/...` means the runtime role is `GitHubActionsRole-dev`. Fix **that** role.
+
+**Primary fix — add the runtime role as a project member/owner** (requires admin/project-owner credentials, since the deploy role can't add itself). Easiest via the DataZone console: open the target project (e.g. `test-marketing`) → **Members** → **Add members** → add the runtime role ARN as **Owner**, mirroring how it's already set on `dev-marketing`. Do the same for `prod-marketing` before deploying prod. CLI equivalent:
+
+```bash
+DOMAIN=<dzd-...>            # from deploy logs: domain_id=dzd-...
+PROJECT=<target-project-id> # from deploy logs: project_id=...
+
+# DataZone represents an IAM role as a group profile; find its id by role name
+aws datazone search-group-profiles --domain-identifier "$DOMAIN" \
+  --group-type DATAZONE_SSO_GROUP --search-text "GitHubActionsRole-dev" \
+  --query 'items[].{id:id,name:groupName}' --output table
+
+aws datazone create-project-membership --domain-identifier "$DOMAIN" \
+  --project-identifier "$PROJECT" --designation PROJECT_OWNER \
+  --member groupIdentifier=<GROUP_PROFILE_ID>
+```
+
+**Complementary fix — DataZone IAM (`ListConnections`) permission.** Membership is necessary but the role also needs `datazone:ListConnections`/`GetConnection` in IAM. If the role's DataZone IAM is project-scoped, grant it at the domain level with the helper (additive, least-privilege, `domain/*` wildcard so connection sub-resource ARNs like `…:domain/<domainId>/connection/<id>` match):
 
 ```bash
 cd examples/end-to-end-data-ml-pipeline
-
-# Args: <role-name> <account-id> <region> <domain-id>
-# Use the role from get-caller-identity above (e.g. GitHubActionsRole-dev).
+# Args: <role-name> <account-id> <region> <domain-id>  (use the runtime role)
 ./scripts/grant-datazone-access.sh \
   GitHubActionsRole-dev "$AWS_ACCOUNT_ID" "$DOMAIN_REGION" "$DOMAIN_ID"
-```
 
-Find the domain id (`dzd-...`) from the deploy logs (`domain_id=dzd-...`) or with:
-
-```bash
-aws datazone list-domains --region "$DOMAIN_REGION" \
-  --query "items[].{name:name,id:id}" --output table
-```
-
-The script is idempotent. After it runs, re-trigger the deploy — `ListConnections` will succeed for all projects in the domain. Verify the policy with:
-
-```bash
-aws iam get-role-policy \
-  --role-name GitHubActionsOIDCRole \
+# verify
+aws iam get-role-policy --role-name GitHubActionsRole-dev \
   --policy-name SmusDataZoneDomainDeployAccess
 ```
 
-> The manifest also lists the deploy role under each stage's `project.owners`, which makes it a project owner. Ownership and the domain IAM grant are complementary: ownership establishes membership, the IAM policy authorizes the `datazone` API calls.
+After the runtime role is a member of the target project (and has the IAM above), re-trigger the deploy — `ListConnections` resolves `default.s3_shared` and the storage items upload.
 
 Once provisioned, the rule is `ENABLED` immediately. Approving a model version in `bank-mktg-prediction-models` then triggers the dev → test → prod promote cascade through GitHub Actions. See [Deploy trigger behavior](#deploy-trigger-behavior) for how the trigger handles approvals and avoids re-deploy loops.
 

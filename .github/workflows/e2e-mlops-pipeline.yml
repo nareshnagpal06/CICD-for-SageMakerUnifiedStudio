@@ -12,12 +12,12 @@ on:
       - '.github/workflows/e2e-mlops-pipeline.yml'
   workflow_dispatch:
     inputs:
-      environment:
-        description: "Target environment to deploy"
+      stages:
+        description: "Stage(s) to deploy through ('all' = dev → test → prod)"
         required: true
-        default: "dev"
+        default: "all"
         type: choice
-        options: [dev, test, prod]
+        options: [all, dev, test, prod]
 
 permissions:
   id-token: write
@@ -25,16 +25,45 @@ permissions:
 
 jobs:
   # --------------------------------------------------------------------------
+  # Job 0: Resolve the stage(s) to run so downstream jobs fan out via a matrix.
+  #        Defaults to "all" → dev → test → prod (sequential, max-parallel: 1);
+  #        a single stage runs just that stage.
+  # --------------------------------------------------------------------------
+  resolve:
+    name: Resolve stages
+    runs-on: ubuntu-latest
+    outputs:
+      stages: ${{ steps.set.outputs.stages }}
+    steps:
+      - id: set
+        env:
+          INPUT_STAGES: ${{ inputs.stages || 'all' }}
+        run: |
+          STAGE="${INPUT_STAGES:-all}"
+          if [ "$STAGE" = "all" ]; then
+            echo 'stages=["dev","test","prod"]' >> "$GITHUB_OUTPUT"
+          else
+            echo "stages=[\"$STAGE\"]" >> "$GITHUB_OUTPUT"
+          fi
+          echo "▶ Stage(s) to run: $STAGE"
+
+  # --------------------------------------------------------------------------
   # Job 1: Provision MLOps infra (EventBridge + Lambda deploy trigger)
   # --------------------------------------------------------------------------
   setup-infra:
-    name: Setup ML Training Pipeline Infrastructure (${{ inputs.environment || 'dev' }})
+    name: Setup ML Training Pipeline Infrastructure (${{ matrix.stage }})
+    needs: [resolve]
     runs-on: ubuntu-latest
     environment: test-aws-account
+    strategy:
+      fail-fast: true
+      max-parallel: 1
+      matrix:
+        stage: ${{ fromJSON(needs.resolve.outputs.stages) }}
     steps:
       - name: Banner - Pipeline Overview
         run: |
-          STAGE="${{ inputs.environment || 'dev' }}"
+          STAGE="${{ matrix.stage }}"
           echo "╔══════════════════════════════════════════════════════════╗"
           echo "║  E2E MLOPS TRAINING PIPELINE · RUN OVERVIEW"
           echo "╠══════════════════════════════════════════════════════════╣"
@@ -49,7 +78,8 @@ jobs:
           echo "║    • Run ID         : ${{ github.run_id }} (attempt ${{ github.run_attempt }})"
           echo "╠══════════════════════════════════════════════════════════╣"
           echo "║  DEPLOYMENT CONFIGURATION"
-          echo "║    • Target stage   : ${STAGE}"
+          echo "║    • Requested      : ${{ inputs.stages || 'all' }}"
+          echo "║    • This stage     : ${STAGE}"
           echo "║    • Region         : ${{ vars.DOMAIN_REGION }}"
           echo "║    • MLflow setup    : enabled (setup_mlflow: true)"
           echo "║    • Skip CLI tests : true (deploy-only in this pipeline)"
@@ -71,7 +101,7 @@ jobs:
           echo "╠══════════════════════════════════════════════════════════╣"
           echo "║  Purpose : Provision the EventBridge rule + Lambda deploy"
           echo "║            trigger and supporting IAM for the target stage."
-          echo "║  Stage   : ${{ inputs.environment || 'dev' }}"
+          echo "║  Stage   : ${{ matrix.stage }}"
           echo "║  Region  : ${{ vars.DOMAIN_REGION }}"
           echo "║  Repo    : ${{ github.repository }}"
           echo "║  Ref     : ${{ github.ref_name }} (${{ github.sha }})"
@@ -107,7 +137,7 @@ jobs:
         run: |
           REGION="${{ vars.DOMAIN_REGION }}"
           ACCOUNT_ID="${{ steps.aws-account.outputs.account-id }}"
-          STAGE="${{ inputs.environment || 'dev' }}"
+          STAGE="${{ matrix.stage }}"
           PROJECT_NAME="bank-mktg-${STAGE}"
 
           echo "::group::🚧 Provisioning MLOps infra (${STAGE})"
@@ -133,12 +163,17 @@ jobs:
   # Job 2: Deploy using smus-direct-deploy (single-hop OIDC auth)
   # --------------------------------------------------------------------------
   deploy:
-    name: Deploy MLOps Pipeline (${{ inputs.environment || 'dev' }})
-    needs: [setup-infra]
+    name: Deploy MLOps Pipeline (${{ matrix.stage }})
+    needs: [resolve, setup-infra]
+    strategy:
+      fail-fast: true
+      max-parallel: 1
+      matrix:
+        stage: ${{ fromJSON(needs.resolve.outputs.stages) }}
     uses: ./.github/workflows/smus-direct-deploy.yml
     with:
       manifest_path: 'examples/end-to-end-data-ml-pipeline/examples/mlops-pipeline/manifest.yaml'
-      test_target: ${{ inputs.environment || 'dev' }}
+      test_target: ${{ matrix.stage }}
       setup_mlflow: true
       skip_tests: true
     secrets:
@@ -156,10 +191,15 @@ jobs:
   # Runs AFTER `deploy` so the deploy's `src/` sync cannot clobber the bundle.
   # --------------------------------------------------------------------------
   upload-sourcedir:
-    name: Upload Artifacts (${{ inputs.environment || 'dev' }})
-    needs: [deploy]
+    name: Upload Artifacts (${{ matrix.stage }})
+    needs: [resolve, deploy]
     runs-on: ubuntu-latest
     environment: test-aws-account
+    strategy:
+      fail-fast: true
+      max-parallel: 1
+      matrix:
+        stage: ${{ fromJSON(needs.resolve.outputs.stages) }}
     steps:
       - name: Banner - Upload Training Source Bundle
         run: |
@@ -170,7 +210,7 @@ jobs:
           echo "║            requirements.txt) and push it to the project"
           echo "║            shared S3 bucket at the exact key the SageMaker"
           echo "║            training DAG downloads from."
-          echo "║  Stage   : ${{ inputs.environment || 'dev' }}"
+          echo "║  Stage   : ${{ matrix.stage }}"
           echo "║  Region  : ${{ vars.DOMAIN_REGION }}"
           echo "║  Why     : bundle is git-ignored + built at deploy time, so"
           echo "║            the reusable deploy job never uploads it itself."
@@ -238,7 +278,7 @@ jobs:
         run: |
           set -euo pipefail
           MANIFEST="examples/end-to-end-data-ml-pipeline/examples/mlops-pipeline/manifest.yaml"
-          TARGET="${{ inputs.environment || 'dev' }}"
+          TARGET="${{ matrix.stage }}"
           SRC="examples/end-to-end-data-ml-pipeline/examples/mlops-pipeline/src/sourcedir.tar.gz"
 
           # ----------------------------------------------------------------

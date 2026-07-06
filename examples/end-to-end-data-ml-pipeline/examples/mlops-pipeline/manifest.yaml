@@ -93,7 +93,7 @@ stages:
     project:
       name: ${TEST_PROJECT_NAME:test-marketing}
       owners:
-        - arn:aws:iam::${AWS_ACCOUNT_ID}:role/GitHubActionsRole-dev
+        - arn:aws:iam::${AWS_ACCOUNT_ID}:role/GitHubActionsRole-SMUS-CLI-Tests
     environment_variables:
       ATHENA_DB_NAME: bank_mktg_test
       EXPERIMENT_NAME: bank-mktg-experiments
@@ -132,6 +132,8 @@ stages:
       region: ${PROD_DOMAIN_REGION:us-east-1}
     project:
       name: ${PROD_PROJECT_NAME:prod-marketing}
+      owners:
+        - arn:aws:iam::${AWS_ACCOUNT_ID}:role/GitHubActionsRole-SMUS-CLI-Tests
     environment_variables:
       ATHENA_DB_NAME: bank_mktg_prod
       EXPERIMENT_NAME: bank-mktg-experiments
