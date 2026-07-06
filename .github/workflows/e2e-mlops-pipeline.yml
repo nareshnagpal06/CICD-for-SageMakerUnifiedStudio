@@ -25,28 +25,7 @@ permissions:
 
 jobs:
   # --------------------------------------------------------------------------
-  # Job 1: Build sourcedir.tar.gz (training script + requirements.txt)
-  # --------------------------------------------------------------------------
-  prebuild:
-    name: Build Training Source Bundle
-    runs-on: ubuntu-latest
-    steps:
-      - uses: actions/checkout@v4
-
-      - name: Build sourcedir.tar.gz
-        run: |
-          echo "🔧 Building MLOps training source bundle..."
-          bash examples/end-to-end-data-ml-pipeline/scripts/build-mlops-sourcedir.sh
-
-      - name: Upload source bundle
-        uses: actions/upload-artifact@v4
-        with:
-          name: mlops-sourcedir-${{ github.run_id }}
-          path: examples/end-to-end-data-ml-pipeline/examples/mlops-pipeline/src/sourcedir.tar.gz
-          if-no-files-found: error
-
-  # --------------------------------------------------------------------------
-  # Job 2: Provision MLOps infra (EventBridge + Lambda deploy trigger)
+  # Job 1: Provision MLOps infra (EventBridge + Lambda deploy trigger)
   # --------------------------------------------------------------------------
   setup-infra:
     name: Setup MLOps Infrastructure
@@ -85,11 +64,11 @@ jobs:
             "$PROJECT_NAME"
 
   # --------------------------------------------------------------------------
-  # Job 3: Deploy using smus-direct-deploy (single-hop OIDC auth)
+  # Job 2: Deploy using smus-direct-deploy (single-hop OIDC auth)
   # --------------------------------------------------------------------------
   deploy:
     name: Deploy
-    needs: [prebuild, setup-infra]
+    needs: [setup-infra]
     uses: ./.github/workflows/smus-direct-deploy.yml
     with:
       manifest_path: 'examples/end-to-end-data-ml-pipeline/examples/mlops-pipeline/manifest.yaml'
@@ -98,3 +77,63 @@ jobs:
       skip_tests: true
     secrets:
       AWS_ROLE_ARN_TEST: ${{ secrets.AWS_ROLE_ARN_TEST }}
+
+  # --------------------------------------------------------------------------
+  # Job 3: Upload the training source bundle (sourcedir.tar.gz) to S3
+  # --------------------------------------------------------------------------
+  # SageMaker downloads `sourcedir.tar.gz` from the project shared S3 location
+  # at training time (see `sagemaker_submit_directory` in
+  # workflows/training_pipeline.yaml). The bundle is git-ignored and built at
+  # deploy time, and `smus-direct-deploy.yml` checks out its own tree (without
+  # the bundle), so the bundle must be pushed to S3 here.
+  #
+  # Runs AFTER `deploy` so the deploy's `src/` sync cannot clobber the bundle.
+  # --------------------------------------------------------------------------
+  upload-sourcedir:
+    name: Upload Training Source Bundle to S3
+    needs: [deploy]
+    runs-on: ubuntu-latest
+    environment: test-aws-account
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Build sourcedir.tar.gz
+        run: |
+          echo "🔧 Building MLOps training source bundle..."
+          bash examples/end-to-end-data-ml-pipeline/scripts/build-mlops-sourcedir.sh
+
+      - name: Configure AWS credentials
+        uses: aws-actions/configure-aws-credentials@v4
+        with:
+          role-to-assume: ${{ secrets.AWS_ROLE_ARN_TEST }}
+          aws-region: ${{ vars.DOMAIN_REGION }}
+          role-session-name: smus-mlops-sourcedir-upload
+
+      - name: Get AWS Account ID
+        id: aws-account
+        run: |
+          ACCOUNT_ID=$(aws sts get-caller-identity --query Account --output text)
+          echo "account-id=$ACCOUNT_ID" >> $GITHUB_OUTPUT
+          echo "✓ AWS Account ID: $ACCOUNT_ID"
+
+      - name: Upload sourcedir.tar.gz to project shared S3
+        run: |
+          set -euo pipefail
+          REGION="${{ vars.DOMAIN_REGION }}"
+          ACCOUNT_ID="${{ steps.aws-account.outputs.account-id }}"
+          PROJECT_ID="${{ vars.PROJECT_ID }}"
+
+          if [ -z "$PROJECT_ID" ]; then
+            echo "::error::vars.PROJECT_ID is not set; cannot resolve the shared S3 bucket name."
+            exit 1
+          fi
+
+          BUCKET="amazon-sagemaker-${ACCOUNT_ID}-${REGION}-${PROJECT_ID}"
+          KEY="shared/bank-mktg/mlops_pipeline/src/sourcedir.tar.gz"
+          SRC="examples/end-to-end-data-ml-pipeline/examples/mlops-pipeline/src/sourcedir.tar.gz"
+
+          echo "📤 Uploading $SRC -> s3://${BUCKET}/${KEY}"
+          aws s3 cp "$SRC" "s3://${BUCKET}/${KEY}"
+
+          echo "🔎 Verifying upload:"
+          aws s3 ls "s3://${BUCKET}/${KEY}"
