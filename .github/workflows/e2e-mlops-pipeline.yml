@@ -28,10 +28,27 @@ jobs:
   # Job 1: Provision MLOps infra (EventBridge + Lambda deploy trigger)
   # --------------------------------------------------------------------------
   setup-infra:
-    name: Setup MLOps Infrastructure
+    name: Setup MLOps Infrastructure (${{ inputs.environment || 'dev' }})
     runs-on: ubuntu-latest
     environment: test-aws-account
     steps:
+      - name: Banner - Setup MLOps Infrastructure
+        run: |
+          echo "╔══════════════════════════════════════════════════════════╗"
+          echo "║  JOB 1/3 · SETUP MLOPS INFRASTRUCTURE"
+          echo "╠══════════════════════════════════════════════════════════╣"
+          echo "║  Purpose : Provision the EventBridge rule + Lambda deploy"
+          echo "║            trigger and supporting IAM for the target stage."
+          echo "║  Stage   : ${{ inputs.environment || 'dev' }}"
+          echo "║  Region  : ${{ vars.DOMAIN_REGION }}"
+          echo "║  Repo    : ${{ github.repository }}"
+          echo "║  Ref     : ${{ github.ref_name }} (${{ github.sha }})"
+          echo "║  Actor   : ${{ github.actor }}"
+          echo "╚══════════════════════════════════════════════════════════╝"
+
+      - name: Checkout repository
+        run: echo "📥 Checking out ${{ github.repository }}@${{ github.sha }}"
+
       - uses: actions/checkout@v4
 
       - name: Configure AWS credentials
@@ -44,9 +61,13 @@ jobs:
       - name: Get AWS Account ID
         id: aws-account
         run: |
+          echo "::group::🔐 Resolving AWS identity"
+          echo "▶ Step: confirm which AWS account/role these credentials map to"
+          aws sts get-caller-identity
           ACCOUNT_ID=$(aws sts get-caller-identity --query Account --output text)
           echo "account-id=$ACCOUNT_ID" >> $GITHUB_OUTPUT
           echo "✓ AWS Account ID: $ACCOUNT_ID"
+          echo "::endgroup::"
 
       - name: Provision MLOps infra
         env:
@@ -54,20 +75,33 @@ jobs:
         run: |
           REGION="${{ vars.DOMAIN_REGION }}"
           ACCOUNT_ID="${{ steps.aws-account.outputs.account-id }}"
-          PROJECT_NAME="bank-mktg-${{ inputs.environment || 'dev' }}"
+          STAGE="${{ inputs.environment || 'dev' }}"
+          PROJECT_NAME="bank-mktg-${STAGE}"
 
-          echo "🚧 Provisioning MLOps infra for ${{ inputs.environment || 'dev' }}"
+          echo "::group::🚧 Provisioning MLOps infra (${STAGE})"
+          echo "▶ Step: run setup-mlops-infra.sh to create/refresh the deploy"
+          echo "        trigger (EventBridge + Lambda) that dispatches on model"
+          echo "        approval. This is idempotent and safe to re-run."
+          echo "  • Stage        : ${STAGE}"
+          echo "  • Account ID   : ${ACCOUNT_ID}"
+          echo "  • Region       : ${REGION}"
+          echo "  • Project name : ${PROJECT_NAME}"
+          echo "  • Dispatch repo: ${GITHUB_REPO}"
+
           bash examples/end-to-end-data-ml-pipeline/scripts/setup-mlops-infra.sh \
-            "${{ inputs.environment || 'dev' }}" \
+            "${STAGE}" \
             "$ACCOUNT_ID" \
             "$REGION" \
             "$PROJECT_NAME"
+
+          echo "✅ MLOps infrastructure provisioning complete for ${STAGE}"
+          echo "::endgroup::"
 
   # --------------------------------------------------------------------------
   # Job 2: Deploy using smus-direct-deploy (single-hop OIDC auth)
   # --------------------------------------------------------------------------
   deploy:
-    name: Deploy
+    name: Deploy MLOps Pipeline (${{ inputs.environment || 'dev' }})
     needs: [setup-infra]
     uses: ./.github/workflows/smus-direct-deploy.yml
     with:
@@ -90,11 +124,29 @@ jobs:
   # Runs AFTER `deploy` so the deploy's `src/` sync cannot clobber the bundle.
   # --------------------------------------------------------------------------
   upload-sourcedir:
-    name: Upload Training Source Bundle to S3
+    name: Upload Training Source Bundle (${{ inputs.environment || 'dev' }})
     needs: [deploy]
     runs-on: ubuntu-latest
     environment: test-aws-account
     steps:
+      - name: Banner - Upload Training Source Bundle
+        run: |
+          echo "╔══════════════════════════════════════════════════════════╗"
+          echo "║  JOB 3/3 · UPLOAD TRAINING SOURCE BUNDLE (sourcedir.tar.gz)"
+          echo "╠══════════════════════════════════════════════════════════╣"
+          echo "║  Purpose : Build sourcedir.tar.gz (train script +"
+          echo "║            requirements.txt) and push it to the project"
+          echo "║            shared S3 bucket at the exact key the SageMaker"
+          echo "║            training DAG downloads from."
+          echo "║  Stage   : ${{ inputs.environment || 'dev' }}"
+          echo "║  Region  : ${{ vars.DOMAIN_REGION }}"
+          echo "║  Why     : bundle is git-ignored + built at deploy time, so"
+          echo "║            the reusable deploy job never uploads it itself."
+          echo "╚══════════════════════════════════════════════════════════╝"
+
+      - name: Checkout repository
+        run: echo "📥 Checking out ${{ github.repository }}@${{ github.sha }}"
+
       - uses: actions/checkout@v4
 
       - name: Set up Python
@@ -104,13 +156,27 @@ jobs:
 
       - name: Install SMUS CI/CD CLI
         run: |
+          echo "::group::📦 Installing SMUS CI/CD CLI"
+          echo "▶ Step: install the CLI (editable + dev extras) so this job can"
+          echo "        call 'aws-smus-cicd-cli describe' to resolve S3 targets."
+          python --version
           python -m pip install --upgrade pip
           pip install -e ".[dev]"
+          echo "✓ Installed CLI: $(aws-smus-cicd-cli --version 2>/dev/null || echo 'version unavailable')"
+          echo "::endgroup::"
 
       - name: Build sourcedir.tar.gz
         run: |
-          echo "🔧 Building MLOps training source bundle..."
+          echo "::group::🔧 Building MLOps training source bundle"
+          echo "▶ Step: package train_xgboost.py + requirements.txt into"
+          echo "        sourcedir.tar.gz (SageMaker pip-installs + runs these)."
           bash examples/end-to-end-data-ml-pipeline/scripts/build-mlops-sourcedir.sh
+          BUNDLE="examples/end-to-end-data-ml-pipeline/examples/mlops-pipeline/src/sourcedir.tar.gz"
+          echo "✓ Built bundle: ${BUNDLE}"
+          echo "  • Size    : $(du -h "$BUNDLE" | cut -f1)"
+          echo "  • Contents:"
+          tar tzf "$BUNDLE" | sed 's/^/      - /'
+          echo "::endgroup::"
 
       - name: Configure AWS credentials
         uses: aws-actions/configure-aws-credentials@v4
@@ -122,9 +188,13 @@ jobs:
       - name: Get AWS Account ID
         id: aws-account
         run: |
+          echo "::group::🔐 Resolving AWS identity"
+          echo "▶ Step: confirm which AWS account/role these credentials map to"
+          aws sts get-caller-identity
           ACCOUNT_ID=$(aws sts get-caller-identity --query Account --output text)
           echo "account-id=$ACCOUNT_ID" >> $GITHUB_OUTPUT
           echo "✓ AWS Account ID: $ACCOUNT_ID"
+          echo "::endgroup::"
 
       - name: Resolve shared S3 location and upload bundle
         env:
@@ -139,16 +209,23 @@ jobs:
           TARGET="${{ inputs.environment || 'dev' }}"
           SRC="examples/end-to-end-data-ml-pipeline/examples/mlops-pipeline/src/sourcedir.tar.gz"
 
-          # Resolve the project's default.s3_shared URI from the CLI (same source
-          # of truth the training DAG uses for sagemaker_submit_directory), so we
-          # never hardcode the bucket name or depend on an external PROJECT_ID var.
-          echo "🔍 Resolving default.s3_shared URI for target '$TARGET'..."
+          # ----------------------------------------------------------------
+          # Step A: resolve the project's default.s3_shared URI from the CLI
+          # (same source of truth the training DAG uses for
+          # sagemaker_submit_directory) so we never hardcode the bucket name
+          # or depend on an external PROJECT_ID var.
+          # ----------------------------------------------------------------
+          echo "::group::🔍 Step A · Resolving default.s3_shared URI for target '$TARGET'"
+          echo "▶ Running: aws-smus-cicd-cli describe --targets $TARGET --connect --output JSON"
           aws-smus-cicd-cli describe \
             --manifest "$MANIFEST" \
             --targets "$TARGET" \
             --connect \
             --output JSON > describe.json
+          echo "✓ describe output captured ($(wc -l < describe.json) lines)"
+          echo "::endgroup::"
 
+          echo "::group::🧮 Step B · Parsing shared S3 URI"
           S3_URI=$(python3 - "$TARGET" <<'PY'
           import json, sys
           target = sys.argv[1]
@@ -167,13 +244,21 @@ jobs:
           print(uri)
           PY
           )
+          echo "✓ Resolved default.s3_shared s3Uri: ${S3_URI}"
+          echo "::endgroup::"
 
           # Mirror the DAG's sagemaker_submit_directory resolution:
           #   {default.s3_shared.s3Uri}bank-mktg/mlops_pipeline/src/sourcedir.tar.gz
           DEST="${S3_URI%/}/bank-mktg/mlops_pipeline/src/sourcedir.tar.gz"
 
-          echo "📤 Uploading $SRC -> $DEST"
+          echo "::group::📤 Step C · Uploading bundle to S3"
+          echo "▶ Source     : ${SRC}"
+          echo "▶ Destination: ${DEST}"
           aws s3 cp "$SRC" "$DEST"
+          echo "::endgroup::"
 
-          echo "🔎 Verifying upload:"
+          echo "::group::🔎 Step D · Verifying upload"
+          echo "▶ Confirming the object exists at the DAG's expected key"
           aws s3 ls "$DEST"
+          echo "✅ sourcedir.tar.gz is in place — SageMaker training can download it."
+          echo "::endgroup::"
