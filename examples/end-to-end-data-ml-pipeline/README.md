@@ -320,8 +320,6 @@ GitHub Actions workflows (at the repository root) automate multi-account deploym
 | DataOps | [`e2e-dataops-pipeline.yml`](../../.github/workflows/e2e-dataops-pipeline.yml) | Deploy and run the data pipeline |
 | MLOps Training | [`e2e-mlops-pipeline.yml`](../../.github/workflows/e2e-mlops-pipeline.yml) | Deploy training pipeline + provision MLOps infra (dev) |
 | MLOps Promote | [`e2e-mlops-promote.yml`](../../.github/workflows/e2e-mlops-promote.yml) | Event-driven dev → test → prod promote cascade on model approval |
-| MLOps Deploy | [`e2e-mlops-deploy.yml`](../../.github/workflows/e2e-mlops-deploy.yml) | Deploy the model endpoint for a stage |
-| Reusable Deploy | [`smus-e2e-direct-deploy.yml`](../../.github/workflows/smus-e2e-direct-deploy.yml) | Shared deploy workflow used by the pipelines above |
 
 CI/CD uses OIDC authentication with two-hop role assumption (no long-lived credentials). The MLOps training workflow provisions the EventBridge + Lambda deploy trigger in dev only — model approval happens in dev's registry and drives the promote cascade across stages.
 

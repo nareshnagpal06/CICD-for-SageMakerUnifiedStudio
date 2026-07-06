@@ -102,6 +102,65 @@ def _resolve_domain_id(dz, domain_name: str) -> str:
     raise ValueError(f"Domain '{domain_name}' not found")
 
 
+def _parse_domain_tags(raw: str) -> dict[str, str]:
+    """Parse a comma-separated 'key=value' string into a tag dict."""
+    tags: dict[str, str] = {}
+    for item in raw.split(","):
+        item = item.strip()
+        if not item:
+            continue
+        if "=" not in item:
+            raise ValueError(f"Invalid --domain-tags entry '{item}', expected key=value")
+        key, value = item.split("=", 1)
+        tags[key.strip()] = value.strip()
+    if not tags:
+        raise ValueError("--domain-tags provided but no key=value pairs parsed")
+    return tags
+
+
+def _resolve_domain_id_by_tags(dz, tags: dict[str, str], region: str) -> str:
+    """Resolve a domain id by matching ALL provided tags.
+
+    Mirrors the SMUS CLI's manifest-based domain resolution (region + tags),
+    so the promotion pipeline doesn't need a hardcoded domain name.
+    """
+    paginator = dz.get_paginator("list_domains")
+    matches = []
+    for page in paginator.paginate():
+        for domain in page.get("items", []):
+            domain_arn = domain.get("arn")
+            if not domain_arn:
+                continue
+            domain_tags = dz.list_tags_for_resource(resourceArn=domain_arn).get("tags", {})
+            if all(domain_tags.get(k) == v for k, v in tags.items()):
+                matches.append(domain)
+    if not matches:
+        raise ValueError(f"No domain in region {region} matches tags {tags}")
+    if len(matches) > 1:
+        names = ", ".join(d.get("name", d["id"]) for d in matches)
+        raise ValueError(
+            f"Multiple domains match tags {tags}: {names}. "
+            "Narrow the tags or pass --domain-id."
+        )
+    return matches[0]["id"]
+
+
+def _auto_detect_domain_id(dz, region: str) -> str:
+    """Return the only domain in the region, or fail if 0 or >1 exist."""
+    paginator = dz.get_paginator("list_domains")
+    domains = []
+    for page in paginator.paginate():
+        domains.extend(page.get("items", []))
+    if len(domains) == 1:
+        return domains[0]["id"]
+    if not domains:
+        raise ValueError(f"No domains found in region {region}")
+    raise ValueError(
+        f"Multiple domains found in region {region}. "
+        "Pass --domain-id, --domain-name, or --domain-tags."
+    )
+
+
 def _resolve_project_bucket(dz, sts, domain_id: str, project_name: str, region: str) -> str:
     paginator = dz.get_paginator("list_projects")
     for page in paginator.paginate(domainIdentifier=domain_id):
@@ -178,7 +237,14 @@ def cmd_stage_artifact(args: argparse.Namespace) -> int:
     logger.info("=" * 60)
     logger.info(f"  Package ARN  : {args.model_package_arn}")
     logger.info(f"  Target proj  : {args.target_project_name}")
-    domain_id = args.domain_id or _resolve_domain_id(dz, args.domain_name)
+    if args.domain_id:
+        domain_id = args.domain_id
+    elif args.domain_name:
+        domain_id = _resolve_domain_id(dz, args.domain_name)
+    elif args.domain_tags:
+        domain_id = _resolve_domain_id_by_tags(dz, _parse_domain_tags(args.domain_tags), args.region)
+    else:
+        domain_id = _auto_detect_domain_id(dz, args.region)
     logger.info(f"  Domain       : {domain_id}")
     logger.info("=" * 60)
 
@@ -480,9 +546,18 @@ def build_parser() -> argparse.ArgumentParser:
 
     sp = sub.add_parser("stage-artifact", help="Copy model.tar.gz to a stage bucket.")
     sp.add_argument("--model-package-arn", required=True)
-    domain = sp.add_mutually_exclusive_group(required=True)
+    domain = sp.add_mutually_exclusive_group(required=False)
     domain.add_argument("--domain-id", help="DataZone domain id (dzd-...)")
     domain.add_argument("--domain-name", help="DataZone domain name")
+    domain.add_argument(
+        "--domain-tags",
+        help=(
+            "Comma-separated key=value tags to match a domain (mirrors the "
+            "manifest region+tags resolution), e.g. 'purpose=smus-cicd-testing'. "
+            "If none of --domain-id/--domain-name/--domain-tags is given, the "
+            "single domain in the region is auto-detected."
+        ),
+    )
     sp.add_argument("--target-project-name", required=True)
     sp.add_argument("--region", required=True)
     sp.add_argument(
