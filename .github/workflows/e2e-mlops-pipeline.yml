@@ -28,14 +28,46 @@ jobs:
   # Job 1: Provision MLOps infra (EventBridge + Lambda deploy trigger)
   # --------------------------------------------------------------------------
   setup-infra:
-    name: Setup MLOps Infrastructure (${{ inputs.environment || 'dev' }})
+    name: Setup ML Training Pipeline Infrastructure (${{ inputs.environment || 'dev' }})
     runs-on: ubuntu-latest
     environment: test-aws-account
     steps:
-      - name: Banner - Setup MLOps Infrastructure
+      - name: Banner - Pipeline Overview
+        run: |
+          STAGE="${{ inputs.environment || 'dev' }}"
+          echo "╔══════════════════════════════════════════════════════════╗"
+          echo "║  E2E MLOPS TRAINING PIPELINE · RUN OVERVIEW"
+          echo "╠══════════════════════════════════════════════════════════╣"
+          echo "║  PROJECT DETAILS"
+          echo "║    • Application    : demo"
+          echo "║    • Manifest       : examples/end-to-end-data-ml-pipeline/"
+          echo "║                       examples/mlops-pipeline/manifest.yaml"
+          echo "║    • Repository     : ${{ github.repository }}"
+          echo "║    • Branch / Ref   : ${{ github.ref_name }}"
+          echo "║    • Commit         : ${{ github.sha }}"
+          echo "║    • Triggered by   : ${{ github.actor }} (${{ github.event_name }})"
+          echo "║    • Run ID         : ${{ github.run_id }} (attempt ${{ github.run_attempt }})"
+          echo "╠══════════════════════════════════════════════════════════╣"
+          echo "║  DEPLOYMENT CONFIGURATION"
+          echo "║    • Target stage   : ${STAGE}"
+          echo "║    • Region         : ${{ vars.DOMAIN_REGION }}"
+          echo "║    • MLflow setup    : enabled (setup_mlflow: true)"
+          echo "║    • Skip CLI tests : true (deploy-only in this pipeline)"
+          echo "║    • Workflows      : training_pipeline, deploy_pipeline"
+          echo "║    • Storage targets (connection: default.s3_shared):"
+          echo "║        - src        -> bank-mktg/mlops_pipeline/src"
+          echo "║        - workflows  -> bank-mktg/mlops_pipeline/workflows"
+          echo "╠══════════════════════════════════════════════════════════╣"
+          echo "║  STAGES IN THIS RUN"
+          echo "║    1) Setup ML Training Pipeline Infrastructure (${STAGE})"
+          echo "║    2) Deploy MLOps Pipeline (${STAGE})"
+          echo "║    3) Upload Artifacts (${STAGE})"
+          echo "╚══════════════════════════════════════════════════════════╝"
+
+      - name: Banner - Setup ML Training Pipeline Infrastructure
         run: |
           echo "╔══════════════════════════════════════════════════════════╗"
-          echo "║  JOB 1/3 · SETUP MLOPS INFRASTRUCTURE"
+          echo "║  JOB 1/3 · SETUP ML TRAINING PIPELINE INFRASTRUCTURE"
           echo "╠══════════════════════════════════════════════════════════╣"
           echo "║  Purpose : Provision the EventBridge rule + Lambda deploy"
           echo "║            trigger and supporting IAM for the target stage."
@@ -124,7 +156,7 @@ jobs:
   # Runs AFTER `deploy` so the deploy's `src/` sync cannot clobber the bundle.
   # --------------------------------------------------------------------------
   upload-sourcedir:
-    name: Upload Training Source Bundle (${{ inputs.environment || 'dev' }})
+    name: Upload Artifacts (${{ inputs.environment || 'dev' }})
     needs: [deploy]
     runs-on: ubuntu-latest
     environment: test-aws-account
