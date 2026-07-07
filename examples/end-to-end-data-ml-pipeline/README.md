@@ -31,22 +31,25 @@ These environment variables are the same values configured as GitHub repo/enviro
 ```bash
 pip install aws-smus-cicd-cli
 
-export AWS_ACCOUNT_ID=<your-account-id>
+# Account ID is resolved automatically from your AWS credentials
+# (aws sts get-caller-identity), so you do NOT need to export AWS_ACCOUNT_ID.
+# The domain is resolved by region + the `purpose` tag on the manifest's
+# domain block (default: smus-cicd-testing), so a domain NAME is not needed.
 
 # DataOps example (dev stage only):
-export DEV_DOMAIN_NAME=<your-domain-name>
 export DEV_DOMAIN_REGION=<your-region>
 export DEV_PROJECT_NAME=<your-dev-project>
 
 # MLOps example also validates test/prod, so additionally set:
-export TEST_DOMAIN_NAME=<your-domain-name>
 export TEST_DOMAIN_REGION=<your-region>
 export TEST_PROJECT_NAME=<your-test-project>
-export PROD_DOMAIN_NAME=<your-domain-name>
 export PROD_DOMAIN_REGION=<your-region>
 export PROD_PROJECT_NAME=<your-prod-project>
 export MLFLOW_TRACKING_SERVER_NAME=<your-mlflow-server-name>
-export MLFLOW_TRACKING_SERVER_ARN=arn:aws:sagemaker:<region>:<account-id>:mlflow-tracking-server/<your-mlflow-server-name>
+
+# Optional: override the domain tag used for resolution (defaults to
+# smus-cicd-testing for every stage in these examples).
+# export DOMAIN_TAG_PURPOSE=<your-domain-purpose-tag>
 ```
 
 Each pipeline has its own README with detailed walkthroughs: [`examples/dataops-pipeline/README.md`](examples/dataops-pipeline/README.md) and [`examples/mlops-pipeline/README.md`](examples/mlops-pipeline/README.md).
@@ -228,6 +231,7 @@ The MLOps pipeline depends on DataOps — run DataOps first to create the `campa
 | ---- | ------- |
 | [`scripts/setup-mlops-infra.sh`](scripts/setup-mlops-infra.sh) | Event-driven deploy trigger (Lambda + EventBridge rule + IAM role) |
 | [`scripts/setup-github-oidc.sh`](scripts/setup-github-oidc.sh) | GitHub OIDC provider + IAM role for CI/CD |
+| [`scripts/grant-datazone-access.sh`](scripts/grant-datazone-access.sh) | Grant the deploy role domain-wide DataZone access (fixes `ListConnections` AccessDenied) |
 
 ### Setting up the event-driven deploy trigger
 
@@ -258,6 +262,56 @@ cd examples/end-to-end-data-ml-pipeline
 
 The script is idempotent — re-running it updates the existing Lambda code and configuration. **Re-run it after any change to the trigger logic** (it calls `update-function-code`), since the deployed Lambda does not update automatically. In CI this happens on every MLOps training run.
 
+### Troubleshooting: `ListConnections` AccessDenied during deploy
+
+When deploying to a stage other than `dev` (e.g. `test` or `prod`), the deploy step may fail with:
+
+```text
+AccessDeniedException when calling ListConnections:
+User is not permitted to perform operation: ListConnections.
+❌ No S3 URI found for connection unknown (type: unknown)
+❌ Storage item 1: Failed
+📊 Total files deployed: 0
+❌ Error: Deployment failed due to errors during bundle deployment
+```
+
+**Cause.** `ListConnections` is a project-scoped DataZone operation: the calling role must be a **member of the target project** to list its connections. The deploy role is a member of `dev-marketing` (so `dev` works), but a newly created `test-marketing` / `prod-marketing` project has no such membership, so DataZone denies `ListConnections` there. The deploy role typically lacks `datazone:CreateProjectMembership`, so the pipeline **cannot self-heal** — an admin has to establish the membership once. Because the connection can't be listed, the CLI can't resolve `default.s3_shared`'s `s3Uri` and 0 files are uploaded.
+
+> Note: the manifests do **not** declare a `project.owners` entry — the deploying principal is the project owner when it *creates* the project, but for a project created out of band it must be added as a member/owner (this is why `dev` already works). Adding a role under `owners` would not help anyway, since the deploy role usually lacks `datazone:CreateProjectMembership`.
+
+**Identify the actual deploy role first.** The role that makes the call is whatever the stage's OIDC role secret (`AWS_ROLE_ARN_DEV` / `AWS_ROLE_ARN_TEST` / `AWS_ROLE_ARN_PROD`) resolves to. Read it from any job's identity output (the workflow logs `aws sts get-caller-identity`): `arn:aws:sts::<account>:assumed-role/GitHubActionsRole-dev/...` means the runtime role is `GitHubActionsRole-dev`. Fix **that** role.
+
+**Primary fix — add the runtime role as a project member/owner** (requires admin/project-owner credentials, since the deploy role can't add itself). Easiest via the DataZone console: open the target project (e.g. `test-marketing`) → **Members** → **Add members** → add the runtime role ARN as **Owner**, mirroring how it's already set on `dev-marketing`. Do the same for `prod-marketing` before deploying prod. CLI equivalent:
+
+```bash
+DOMAIN=<dzd-...>            # from deploy logs: domain_id=dzd-...
+PROJECT=<target-project-id> # from deploy logs: project_id=...
+
+# DataZone represents an IAM role as a group profile; find its id by role name
+aws datazone search-group-profiles --domain-identifier "$DOMAIN" \
+  --group-type DATAZONE_SSO_GROUP --search-text "GitHubActionsRole-dev" \
+  --query 'items[].{id:id,name:groupName}' --output table
+
+aws datazone create-project-membership --domain-identifier "$DOMAIN" \
+  --project-identifier "$PROJECT" --designation PROJECT_OWNER \
+  --member groupIdentifier=<GROUP_PROFILE_ID>
+```
+
+**Complementary fix — DataZone IAM (`ListConnections`) permission.** Membership is necessary but the role also needs `datazone:ListConnections`/`GetConnection` in IAM. If the role's DataZone IAM is project-scoped, grant it at the domain level with the helper (additive, least-privilege, `domain/*` wildcard so connection sub-resource ARNs like `…:domain/<domainId>/connection/<id>` match):
+
+```bash
+cd examples/end-to-end-data-ml-pipeline
+# Args: <role-name> <account-id> <region> <domain-id>  (use the runtime role)
+./scripts/grant-datazone-access.sh \
+  GitHubActionsRole-dev "$AWS_ACCOUNT_ID" "$DOMAIN_REGION" "$DOMAIN_ID"
+
+# verify
+aws iam get-role-policy --role-name GitHubActionsRole-dev \
+  --policy-name SmusDataZoneDomainDeployAccess
+```
+
+After the runtime role is a member of the target project (and has the IAM above), re-trigger the deploy — `ListConnections` resolves `default.s3_shared` and the storage items upload.
+
 Once provisioned, the rule is `ENABLED` immediately. Approving a model version in `bank-mktg-prediction-models` then triggers the dev → test → prod promote cascade through GitHub Actions. See [Deploy trigger behavior](#deploy-trigger-behavior) for how the trigger handles approvals and avoids re-deploy loops.
 
 ## CI/CD
@@ -269,26 +323,35 @@ GitHub Actions workflows (at the repository root) automate multi-account deploym
 | DataOps | [`e2e-dataops-pipeline.yml`](../../.github/workflows/e2e-dataops-pipeline.yml) | Deploy and run the data pipeline |
 | MLOps Training | [`e2e-mlops-pipeline.yml`](../../.github/workflows/e2e-mlops-pipeline.yml) | Deploy training pipeline + provision MLOps infra (dev) |
 | MLOps Promote | [`e2e-mlops-promote.yml`](../../.github/workflows/e2e-mlops-promote.yml) | Event-driven dev → test → prod promote cascade on model approval |
-| MLOps Deploy | [`e2e-mlops-deploy.yml`](../../.github/workflows/e2e-mlops-deploy.yml) | Deploy the model endpoint for a stage |
-| Reusable Deploy | [`smus-e2e-direct-deploy.yml`](../../.github/workflows/smus-e2e-direct-deploy.yml) | Shared deploy workflow used by the pipelines above |
 
 CI/CD uses OIDC authentication with two-hop role assumption (no long-lived credentials). The MLOps training workflow provisions the EventBridge + Lambda deploy trigger in dev only — model approval happens in dev's registry and drives the promote cascade across stages.
 
-### GitHub variables (CI source of truth)
+### GitHub configuration (CI source of truth)
 
-The workflows read all configuration from GitHub Actions variables — there is no config file checked into the repo. Repo-level variables apply to every environment; environment-scoped variables are set per `dev`/`test`/`prod` environment.
+The workflows read their configuration from GitHub Actions **variables** and **secrets** — there is no config file checked into the repo. In these examples all jobs run in a single GitHub Environment named `test-aws-account`, so the per-stage OIDC role secrets and the `DOMAIN_REGION` variable live there.
+
+Some values that used to be configured are now derived at runtime and no longer need to be set:
+
+- **`AWS_ACCOUNT_ID`** — resolved via `aws sts get-caller-identity`.
+- **Domain** — resolved by region + the `purpose` tag on the manifest's domain block (default `smus-cicd-testing`), so no domain *name* variable is needed.
+- **Project owner** — the deploying principal is already the project owner, so the manifests no longer hardcode an owner role.
+
+**Secrets** (stored in the `test-aws-account` environment):
+
+| Secret | Purpose |
+| ------ | ------- |
+| `AWS_ROLE_ARN_DEV` / `AWS_ROLE_ARN_TEST` / `AWS_ROLE_ARN_PROD` | Per-stage OIDC roles assumed by the workflows (dev → DEV, test → TEST, prod → PROD) |
+
+**Variables:**
 
 | Variable | Scope | Purpose |
 | -------- | ----- | ------- |
-| `AWS_REGION` | repo | Region for all stages (feeds `*_DOMAIN_REGION`) |
-| `DEV_DOMAIN_NAME` / `TEST_DOMAIN_NAME` / `PROD_DOMAIN_NAME` | repo | SMUS domain per stage |
-| `DEV_PROJECT_NAME` / `TEST_PROJECT_NAME` / `PROD_PROJECT_NAME` | repo | SMUS project per stage |
+| `DOMAIN_REGION` | environment (`test-aws-account`) | Region for all stages (feeds `*_DOMAIN_REGION`) |
+| `DEV_PROJECT_NAME` / `TEST_PROJECT_NAME` / `PROD_PROJECT_NAME` | repo | SMUS project per stage (optional; manifest defaults to `dev/test/prod-marketing`) |
+| `DEPLOYMENT_ROLE_NAME` | repo/environment | Project role assumed for AWS calls (promote workflow's two-hop auth) |
 | `MLOPS_APPROVERS` | repo | Promote-gate approver list (promote workflow) |
-| `AWS_ROLE_ARN` | environment | OIDC role assumed by the workflow |
-| `AWS_ACCOUNT_ID` | environment | Account for the stage |
-| `DEPLOYMENT_ROLE_NAME` | environment | Project role assumed for AWS calls |
-| `MLFLOW_TRACKING_SERVER_NAME` | environment | MLflow tracking server name |
-| `MLFLOW_TRACKING_SERVER_ARN` | environment | MLflow tracking server ARN |
+| `MLFLOW_TRACKING_SERVER_NAME` | repo/environment | MLflow tracking server name (optional; manifest has a default) |
+| `DOMAIN_TAG_PURPOSE` | repo/environment | Optional override for the domain `purpose` tag (defaults to `smus-cicd-testing`) |
 
 For local runs, export the equivalent values in your shell (see [Prerequisites](#prerequisites)).
 
@@ -327,6 +390,7 @@ For local runs, export the equivalent values in your shell (see [Prerequisites](
 └── scripts/                           # Setup and helper scripts
     ├── setup-mlops-infra.sh           # EventBridge + Lambda deploy trigger
     ├── setup-github-oidc.sh           # GitHub OIDC provider + IAM role
+    ├── grant-datazone-access.sh       # Grant deploy role domain-wide DataZone access
     ├── build-mlops-sourcedir.sh       # Build training sourcedir.tar.gz
     ├── mlops_helper.py                # Deploy status / smoke-test helpers
     └── test-deploy-trigger-event.json # Sample EventBridge event for testing

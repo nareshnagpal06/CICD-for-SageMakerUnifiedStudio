@@ -24,4 +24,6 @@ jobs:
       test_target: 'dev'
       skip_tests: true
     secrets:
-      AWS_ROLE_ARN_TEST: ${{ secrets.AWS_ROLE_ARN_TEST }}
+      # DataOps deploys to the dev stage, so pass the dev OIDC role into the
+      # reusable workflow's role slot.
+      AWS_ROLE_ARN_TEST: ${{ secrets.AWS_ROLE_ARN_DEV }}
