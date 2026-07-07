@@ -125,13 +125,13 @@ jobs:
       start_at: ${{ steps.params.outputs.start_at }}
       run_smoke_test: ${{ steps.params.outputs.run_smoke_test }}
     env:
-      DEV_PROJECT_NAME: ${{ vars.DEV_PROJECT_NAME }}
-      TEST_PROJECT_NAME: ${{ vars.TEST_PROJECT_NAME }}
-      PROD_PROJECT_NAME: ${{ vars.PROD_PROJECT_NAME }}
+      DEV_PROJECT_NAME: ${{ vars.DEV_PROJECT_NAME || 'dev-marketing' }}
+      TEST_PROJECT_NAME: ${{ vars.TEST_PROJECT_NAME || 'test-marketing' }}
+      PROD_PROJECT_NAME: ${{ vars.PROD_PROJECT_NAME || 'prod-marketing' }}
       DEV_DOMAIN_REGION: ${{ vars.DOMAIN_REGION }}
       TEST_DOMAIN_REGION: ${{ vars.DOMAIN_REGION }}
       PROD_DOMAIN_REGION: ${{ vars.DOMAIN_REGION }}
-      MLFLOW_TRACKING_SERVER_NAME: ${{ vars.MLFLOW_TRACKING_SERVER_NAME }}
+      MLFLOW_TRACKING_SERVER_NAME: ${{ vars.MLFLOW_TRACKING_SERVER_NAME || 'smus-integration-mlflow-us-east-1' }}
       MLFLOW_TRACKING_SERVER_ARN: ${{ vars.MLFLOW_TRACKING_SERVER_ARN }}
     steps:
       - uses: actions/checkout@v6
@@ -251,13 +251,13 @@ jobs:
     env:
       STAGE: dev
       ENDPOINT_NAME: bank-mktg-prediction-dev
-      DEV_PROJECT_NAME: ${{ vars.DEV_PROJECT_NAME }}
-      TEST_PROJECT_NAME: ${{ vars.TEST_PROJECT_NAME }}
-      PROD_PROJECT_NAME: ${{ vars.PROD_PROJECT_NAME }}
+      DEV_PROJECT_NAME: ${{ vars.DEV_PROJECT_NAME || 'dev-marketing' }}
+      TEST_PROJECT_NAME: ${{ vars.TEST_PROJECT_NAME || 'test-marketing' }}
+      PROD_PROJECT_NAME: ${{ vars.PROD_PROJECT_NAME || 'prod-marketing' }}
       DEV_DOMAIN_REGION: ${{ vars.DOMAIN_REGION }}
       TEST_DOMAIN_REGION: ${{ vars.DOMAIN_REGION }}
       PROD_DOMAIN_REGION: ${{ vars.DOMAIN_REGION }}
-      MLFLOW_TRACKING_SERVER_NAME: ${{ vars.MLFLOW_TRACKING_SERVER_NAME }}
+      MLFLOW_TRACKING_SERVER_NAME: ${{ vars.MLFLOW_TRACKING_SERVER_NAME || 'smus-integration-mlflow-us-east-1' }}
       MLFLOW_TRACKING_SERVER_ARN: ${{ vars.MLFLOW_TRACKING_SERVER_ARN }}
     steps:
       - uses: actions/checkout@v6
@@ -410,13 +410,13 @@ jobs:
     env:
       STAGE: test
       ENDPOINT_NAME: bank-mktg-prediction-test
-      DEV_PROJECT_NAME: ${{ vars.DEV_PROJECT_NAME }}
-      TEST_PROJECT_NAME: ${{ vars.TEST_PROJECT_NAME }}
-      PROD_PROJECT_NAME: ${{ vars.PROD_PROJECT_NAME }}
+      DEV_PROJECT_NAME: ${{ vars.DEV_PROJECT_NAME || 'dev-marketing' }}
+      TEST_PROJECT_NAME: ${{ vars.TEST_PROJECT_NAME || 'test-marketing' }}
+      PROD_PROJECT_NAME: ${{ vars.PROD_PROJECT_NAME || 'prod-marketing' }}
       DEV_DOMAIN_REGION: ${{ vars.DOMAIN_REGION }}
       TEST_DOMAIN_REGION: ${{ vars.DOMAIN_REGION }}
       PROD_DOMAIN_REGION: ${{ vars.DOMAIN_REGION }}
-      MLFLOW_TRACKING_SERVER_NAME: ${{ vars.MLFLOW_TRACKING_SERVER_NAME }}
+      MLFLOW_TRACKING_SERVER_NAME: ${{ vars.MLFLOW_TRACKING_SERVER_NAME || 'smus-integration-mlflow-us-east-1' }}
       MLFLOW_TRACKING_SERVER_ARN: ${{ vars.MLFLOW_TRACKING_SERVER_ARN }}
     steps:
       - uses: actions/checkout@v6
@@ -564,13 +564,13 @@ jobs:
     env:
       STAGE: prod
       ENDPOINT_NAME: bank-mktg-prediction-prod
-      DEV_PROJECT_NAME: ${{ vars.DEV_PROJECT_NAME }}
-      TEST_PROJECT_NAME: ${{ vars.TEST_PROJECT_NAME }}
-      PROD_PROJECT_NAME: ${{ vars.PROD_PROJECT_NAME }}
+      DEV_PROJECT_NAME: ${{ vars.DEV_PROJECT_NAME || 'dev-marketing' }}
+      TEST_PROJECT_NAME: ${{ vars.TEST_PROJECT_NAME || 'test-marketing' }}
+      PROD_PROJECT_NAME: ${{ vars.PROD_PROJECT_NAME || 'prod-marketing' }}
       DEV_DOMAIN_REGION: ${{ vars.DOMAIN_REGION }}
       TEST_DOMAIN_REGION: ${{ vars.DOMAIN_REGION }}
       PROD_DOMAIN_REGION: ${{ vars.DOMAIN_REGION }}
-      MLFLOW_TRACKING_SERVER_NAME: ${{ vars.MLFLOW_TRACKING_SERVER_NAME }}
+      MLFLOW_TRACKING_SERVER_NAME: ${{ vars.MLFLOW_TRACKING_SERVER_NAME || 'smus-integration-mlflow-us-east-1' }}
       MLFLOW_TRACKING_SERVER_ARN: ${{ vars.MLFLOW_TRACKING_SERVER_ARN }}
     steps:
       - uses: actions/checkout@v6
