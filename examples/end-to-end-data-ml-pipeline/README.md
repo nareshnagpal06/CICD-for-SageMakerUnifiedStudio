@@ -31,22 +31,25 @@ These environment variables are the same values configured as GitHub repo/enviro
 ```bash
 pip install aws-smus-cicd-cli
 
-export AWS_ACCOUNT_ID=<your-account-id>
+# Account ID is resolved automatically from your AWS credentials
+# (aws sts get-caller-identity), so you do NOT need to export AWS_ACCOUNT_ID.
+# The domain is resolved by region + the `purpose` tag on the manifest's
+# domain block (default: smus-cicd-testing), so a domain NAME is not needed.
 
 # DataOps example (dev stage only):
-export DEV_DOMAIN_NAME=<your-domain-name>
 export DEV_DOMAIN_REGION=<your-region>
 export DEV_PROJECT_NAME=<your-dev-project>
 
 # MLOps example also validates test/prod, so additionally set:
-export TEST_DOMAIN_NAME=<your-domain-name>
 export TEST_DOMAIN_REGION=<your-region>
 export TEST_PROJECT_NAME=<your-test-project>
-export PROD_DOMAIN_NAME=<your-domain-name>
 export PROD_DOMAIN_REGION=<your-region>
 export PROD_PROJECT_NAME=<your-prod-project>
 export MLFLOW_TRACKING_SERVER_NAME=<your-mlflow-server-name>
-export MLFLOW_TRACKING_SERVER_ARN=arn:aws:sagemaker:<region>:<account-id>:mlflow-tracking-server/<your-mlflow-server-name>
+
+# Optional: override the domain tag used for resolution (defaults to
+# smus-cicd-testing for every stage in these examples).
+# export DOMAIN_TAG_PURPOSE=<your-domain-purpose-tag>
 ```
 
 Each pipeline has its own README with detailed walkthroughs: [`examples/dataops-pipeline/README.md`](examples/dataops-pipeline/README.md) and [`examples/mlops-pipeline/README.md`](examples/mlops-pipeline/README.md).
@@ -272,11 +275,11 @@ User is not permitted to perform operation: ListConnections.
 ❌ Error: Deployment failed due to errors during bundle deployment
 ```
 
-**Cause.** `ListConnections` is a project-scoped DataZone operation: the calling role must be a **member of the target project** to list its connections. The deploy role is a member of `dev-marketing` (so `dev` works), but a newly created `test-marketing` / `prod-marketing` project has no such membership, so DataZone denies `ListConnections` there. The deploy tries to add the owner listed in `project.owners`, but that call (`CreateProjectMembership`) is itself denied for the deploy role (non-fatal in the logs), so the pipeline **cannot self-heal** — an admin has to establish the membership once. Because the connection can't be listed, the CLI can't resolve `default.s3_shared`'s `s3Uri` and 0 files are uploaded.
+**Cause.** `ListConnections` is a project-scoped DataZone operation: the calling role must be a **member of the target project** to list its connections. The deploy role is a member of `dev-marketing` (so `dev` works), but a newly created `test-marketing` / `prod-marketing` project has no such membership, so DataZone denies `ListConnections` there. The deploy role typically lacks `datazone:CreateProjectMembership`, so the pipeline **cannot self-heal** — an admin has to establish the membership once. Because the connection can't be listed, the CLI can't resolve `default.s3_shared`'s `s3Uri` and 0 files are uploaded.
 
-> Note: the manifest `owners` field is aspirational here — the deploy role usually lacks `datazone:CreateProjectMembership`, so listing a role under `owners` does **not** by itself make it a member. Membership must be established out of band (this is why `dev` already works).
+> Note: the manifests do **not** declare a `project.owners` entry — the deploying principal is the project owner when it *creates* the project, but for a project created out of band it must be added as a member/owner (this is why `dev` already works). Adding a role under `owners` would not help anyway, since the deploy role usually lacks `datazone:CreateProjectMembership`.
 
-**Identify the actual deploy role first.** The role that makes the call is whatever `AWS_ROLE_ARN_TEST` (or the stage's `AWS_ROLE_ARN`) resolves to — **not** necessarily the role under `project.owners`. Read it from any job's identity output (the workflow logs `aws sts get-caller-identity`): `arn:aws:sts::<account>:assumed-role/GitHubActionsRole-dev/...` means the runtime role is `GitHubActionsRole-dev`. Fix **that** role.
+**Identify the actual deploy role first.** The role that makes the call is whatever the stage's OIDC role secret (`AWS_ROLE_ARN_DEV` / `AWS_ROLE_ARN_TEST` / `AWS_ROLE_ARN_PROD`) resolves to. Read it from any job's identity output (the workflow logs `aws sts get-caller-identity`): `arn:aws:sts::<account>:assumed-role/GitHubActionsRole-dev/...` means the runtime role is `GitHubActionsRole-dev`. Fix **that** role.
 
 **Primary fix — add the runtime role as a project member/owner** (requires admin/project-owner credentials, since the deploy role can't add itself). Easiest via the DataZone console: open the target project (e.g. `test-marketing`) → **Members** → **Add members** → add the runtime role ARN as **Owner**, mirroring how it's already set on `dev-marketing`. Do the same for `prod-marketing` before deploying prod. CLI equivalent:
 
@@ -323,21 +326,32 @@ GitHub Actions workflows (at the repository root) automate multi-account deploym
 
 CI/CD uses OIDC authentication with two-hop role assumption (no long-lived credentials). The MLOps training workflow provisions the EventBridge + Lambda deploy trigger in dev only — model approval happens in dev's registry and drives the promote cascade across stages.
 
-### GitHub variables (CI source of truth)
+### GitHub configuration (CI source of truth)
 
-The workflows read all configuration from GitHub Actions variables — there is no config file checked into the repo. Repo-level variables apply to every environment; environment-scoped variables are set per `dev`/`test`/`prod` environment.
+The workflows read their configuration from GitHub Actions **variables** and **secrets** — there is no config file checked into the repo. In these examples all jobs run in a single GitHub Environment named `test-aws-account`, so the per-stage OIDC role secrets and the `DOMAIN_REGION` variable live there.
+
+Some values that used to be configured are now derived at runtime and no longer need to be set:
+
+- **`AWS_ACCOUNT_ID`** — resolved via `aws sts get-caller-identity`.
+- **Domain** — resolved by region + the `purpose` tag on the manifest's domain block (default `smus-cicd-testing`), so no domain *name* variable is needed.
+- **Project owner** — the deploying principal is already the project owner, so the manifests no longer hardcode an owner role.
+
+**Secrets** (stored in the `test-aws-account` environment):
+
+| Secret | Purpose |
+| ------ | ------- |
+| `AWS_ROLE_ARN_DEV` / `AWS_ROLE_ARN_TEST` / `AWS_ROLE_ARN_PROD` | Per-stage OIDC roles assumed by the workflows (dev → DEV, test → TEST, prod → PROD) |
+
+**Variables:**
 
 | Variable | Scope | Purpose |
 | -------- | ----- | ------- |
-| `AWS_REGION` | repo | Region for all stages (feeds `*_DOMAIN_REGION`) |
-| `DEV_DOMAIN_NAME` / `TEST_DOMAIN_NAME` / `PROD_DOMAIN_NAME` | repo | SMUS domain per stage |
-| `DEV_PROJECT_NAME` / `TEST_PROJECT_NAME` / `PROD_PROJECT_NAME` | repo | SMUS project per stage |
+| `DOMAIN_REGION` | environment (`test-aws-account`) | Region for all stages (feeds `*_DOMAIN_REGION`) |
+| `DEV_PROJECT_NAME` / `TEST_PROJECT_NAME` / `PROD_PROJECT_NAME` | repo | SMUS project per stage (optional; manifest defaults to `dev/test/prod-marketing`) |
+| `DEPLOYMENT_ROLE_NAME` | repo/environment | Project role assumed for AWS calls (promote workflow's two-hop auth) |
 | `MLOPS_APPROVERS` | repo | Promote-gate approver list (promote workflow) |
-| `AWS_ROLE_ARN` | environment | OIDC role assumed by the workflow |
-| `AWS_ACCOUNT_ID` | environment | Account for the stage |
-| `DEPLOYMENT_ROLE_NAME` | environment | Project role assumed for AWS calls |
-| `MLFLOW_TRACKING_SERVER_NAME` | environment | MLflow tracking server name |
-| `MLFLOW_TRACKING_SERVER_ARN` | environment | MLflow tracking server ARN |
+| `MLFLOW_TRACKING_SERVER_NAME` | repo/environment | MLflow tracking server name (optional; manifest has a default) |
+| `DOMAIN_TAG_PURPOSE` | repo/environment | Optional override for the domain `purpose` tag (defaults to `smus-cicd-testing`) |
 
 For local runs, export the equivalent values in your shell (see [Prerequisites](#prerequisites)).
 
