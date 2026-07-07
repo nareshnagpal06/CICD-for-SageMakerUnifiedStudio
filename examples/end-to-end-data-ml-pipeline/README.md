@@ -139,7 +139,7 @@ flowchart TD
     style Execution fill:transparent,stroke:#7b1fa2,stroke-width:2px
 ```
 
-The SMUS CLI handles resource provisioning in dependency order, stage-specific configuration substitution, and the full deployment lifecycle. GitHub Actions automates this across environments using OIDC authentication with two-hop role assumption (no long-lived credentials).
+The SMUS CLI handles resource provisioning in dependency order, stage-specific configuration substitution, and the full deployment lifecycle. GitHub Actions automates this across environments using OIDC authentication (no long-lived credentials) — each workflow assumes a per-stage OIDC role directly (single-hop).
 
 ## Architecture
 
@@ -324,7 +324,9 @@ GitHub Actions workflows (at the repository root) automate multi-account deploym
 | MLOps Training | [`e2e-mlops-pipeline.yml`](../../.github/workflows/e2e-mlops-pipeline.yml) | Deploy training pipeline + provision MLOps infra (dev) |
 | MLOps Promote | [`e2e-mlops-promote.yml`](../../.github/workflows/e2e-mlops-promote.yml) | Event-driven dev → test → prod promote cascade on model approval |
 
-CI/CD uses OIDC authentication with two-hop role assumption (no long-lived credentials). The MLOps training workflow provisions the EventBridge + Lambda deploy trigger in dev only — model approval happens in dev's registry and drives the promote cascade across stages.
+CI/CD uses OIDC authentication (no long-lived credentials). Each workflow assumes its per-stage OIDC role (`AWS_ROLE_ARN_DEV`/`_TEST`/`_PROD`) directly — single-hop, no separate deployment role. The MLOps training workflow provisions the EventBridge + Lambda deploy trigger in dev only — model approval happens in dev's registry and drives the promote cascade across stages.
+
+The promote workflow's stage gates (`approve-test`, `approve-prod`) use the [`trstringer/manual-approval`](https://github.com/trstringer/manual-approval) action, which opens a tracking **issue** and waits for a listed approver to comment `approved` (or `approve`/`lgtm`/`yes`). This requires **Issues enabled** on the repository and the workflow's `issues: write` permission. Approvers come from the `MLOPS_APPROVERS` variable (comma/newline-separated usernames); if unset it falls back to a single default approver.
 
 ### GitHub configuration (CI source of truth)
 
@@ -347,9 +349,8 @@ Some values that used to be configured are now derived at runtime and no longer 
 | Variable | Scope | Purpose |
 | -------- | ----- | ------- |
 | `DOMAIN_REGION` | environment (`test-aws-account`) | Region for all stages (feeds `*_DOMAIN_REGION`) |
-| `DEV_PROJECT_NAME` / `TEST_PROJECT_NAME` / `PROD_PROJECT_NAME` | repo | SMUS project per stage (optional; manifest defaults to `dev/test/prod-marketing`) |
-| `DEPLOYMENT_ROLE_NAME` | repo/environment | Project role assumed for AWS calls (promote workflow's two-hop auth) |
-| `MLOPS_APPROVERS` | repo | Promote-gate approver list (promote workflow) |
+| `DEV_PROJECT_NAME` / `TEST_PROJECT_NAME` / `PROD_PROJECT_NAME` | repo | SMUS project per stage (optional; manifest and workflows default to `dev/test/prod-marketing`) |
+| `MLOPS_APPROVERS` | repo | Promote-gate approver list, comma/newline-separated (promote workflow; requires Issues enabled) |
 | `MLFLOW_TRACKING_SERVER_NAME` | repo/environment | MLflow tracking server name (optional; manifest has a default) |
 | `DOMAIN_TAG_PURPOSE` | repo/environment | Optional override for the domain `purpose` tag (defaults to `smus-cicd-testing`) |
 
