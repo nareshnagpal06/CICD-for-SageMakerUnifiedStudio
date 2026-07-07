@@ -19,16 +19,11 @@ ingest_bank_data (Glue)
 
 ```bash
 pip install aws-smus-cicd-cli
-
-# Account ID is resolved from your AWS credentials (aws sts get-caller-identity)
-# and the domain is resolved by region + the manifest's `purpose` tag
-# (default: smus-cicd-testing), so neither AWS_ACCOUNT_ID nor a domain NAME
-# needs to be exported.
-export DEV_DOMAIN_REGION=<your-region>      # required (e.g. us-east-1)
+export DEV_DOMAIN_REGION=<your-region>      # required
 export DEV_PROJECT_NAME=<your-dev-project>  # optional (default: dev-marketing)
 ```
 
-See the [parent e2e example README](../../README.md#prerequisites) for the full variable list and the CI/CD setup.
+Account ID and domain are resolved at runtime, and the rest have defaults — see the [parent e2e example README](../../README.md#prerequisites) for the full variable list and CI/CD setup.
 
 ## Deploy and Run
 
