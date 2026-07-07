@@ -43,9 +43,10 @@
 # Required GitHub config (all jobs run in the `test-aws-account` environment):
 #   secrets: AWS_ROLE_ARN_DEV / AWS_ROLE_ARN_TEST / AWS_ROLE_ARN_PROD
 #                         - per-stage OIDC roles
-#   vars: DEPLOYMENT_ROLE_NAME - Project role to assume (two-hop)
 #   vars: DOMAIN_REGION        - Region (default us-east-1)
 #   vars: MLOPS_APPROVERS      - Approver usernames for the manual gates
+# All AWS work runs directly as the per-stage OIDC role (single-hop); there
+# is no second-hop role assumption, so DEPLOYMENT_ROLE_NAME is not needed.
 # AWS_ACCOUNT_ID is derived at runtime via `aws sts get-caller-identity`.
 # =============================================================================
 
@@ -185,27 +186,9 @@ jobs:
       - name: Install dependencies
         run: pip install boto3 pyyaml -q
 
-      - name: Assume project role
-        # Switch to dataops-admin before any SageMaker / S3 / DataZone
-        # calls. The OIDC role only has permissions to assume the
-        # deployment role; everything else (DescribeModelPackage,
-        # cross-project S3 copy, datazone:ListProjects) needs dataops-admin.
-        shell: bash
-        run: |
-          ACCOUNT_ID=$(aws sts get-caller-identity --query Account --output text)
-          echo "AWS_ACCOUNT_ID=$ACCOUNT_ID" >> "$GITHUB_ENV"
-          CREDS=$(aws sts assume-role \
-            --role-arn "arn:aws:iam::${ACCOUNT_ID}:role/${{ vars.DEPLOYMENT_ROLE_NAME }}" \
-            --role-session-name "promote-prepare-${{ github.run_id }}" \
-            --query 'Credentials' --output json)
-          echo "::add-mask::$(echo "$CREDS" | jq -r .AccessKeyId)"
-          echo "::add-mask::$(echo "$CREDS" | jq -r .SecretAccessKey)"
-          echo "::add-mask::$(echo "$CREDS" | jq -r .SessionToken)"
-          {
-            echo "AWS_ACCESS_KEY_ID=$(echo "$CREDS" | jq -r .AccessKeyId)"
-            echo "AWS_SECRET_ACCESS_KEY=$(echo "$CREDS" | jq -r .SecretAccessKey)"
-            echo "AWS_SESSION_TOKEN=$(echo "$CREDS" | jq -r .SessionToken)"
-          } >> $GITHUB_ENV
+      # Single-hop: all DataZone / SageMaker / S3 calls run directly as the
+      # OIDC role (AWS_ROLE_ARN_DEV), which already holds the required
+      # permissions and project memberships. No second-hop role assumption.
 
       - name: Pick model package
         id: pick
@@ -304,24 +287,6 @@ jobs:
             # SMUS CLI manifest validator rejects empty env vars; "none"
             # is the sentinel deploy_model.py treats as "no override".
             echo "MODEL_DATA_URL_OVERRIDE=none"
-          } >> $GITHUB_ENV
-
-      - name: Assume project role
-        shell: bash
-        run: |
-          ACCOUNT_ID=$(aws sts get-caller-identity --query Account --output text)
-          echo "AWS_ACCOUNT_ID=$ACCOUNT_ID" >> "$GITHUB_ENV"
-          CREDS=$(aws sts assume-role \
-            --role-arn "arn:aws:iam::${ACCOUNT_ID}:role/${{ vars.DEPLOYMENT_ROLE_NAME }}" \
-            --role-session-name "promote-dev-${{ github.run_id }}" \
-            --query 'Credentials' --output json)
-          echo "::add-mask::$(echo "$CREDS" | jq -r .AccessKeyId)"
-          echo "::add-mask::$(echo "$CREDS" | jq -r .SecretAccessKey)"
-          echo "::add-mask::$(echo "$CREDS" | jq -r .SessionToken)"
-          {
-            echo "AWS_ACCESS_KEY_ID=$(echo "$CREDS" | jq -r .AccessKeyId)"
-            echo "AWS_SECRET_ACCESS_KEY=$(echo "$CREDS" | jq -r .SecretAccessKey)"
-            echo "AWS_SESSION_TOKEN=$(echo "$CREDS" | jq -r .SessionToken)"
           } >> $GITHUB_ENV
 
       - name: Validate target (describe --connect)
@@ -487,24 +452,6 @@ jobs:
             echo "MODEL_DATA_URL_OVERRIDE=$OVERRIDE"
           } >> $GITHUB_ENV
 
-      - name: Assume project role
-        shell: bash
-        run: |
-          ACCOUNT_ID=$(aws sts get-caller-identity --query Account --output text)
-          echo "AWS_ACCOUNT_ID=$ACCOUNT_ID" >> "$GITHUB_ENV"
-          CREDS=$(aws sts assume-role \
-            --role-arn "arn:aws:iam::${ACCOUNT_ID}:role/${{ vars.DEPLOYMENT_ROLE_NAME }}" \
-            --role-session-name "promote-test-${{ github.run_id }}" \
-            --query 'Credentials' --output json)
-          echo "::add-mask::$(echo "$CREDS" | jq -r .AccessKeyId)"
-          echo "::add-mask::$(echo "$CREDS" | jq -r .SecretAccessKey)"
-          echo "::add-mask::$(echo "$CREDS" | jq -r .SessionToken)"
-          {
-            echo "AWS_ACCESS_KEY_ID=$(echo "$CREDS" | jq -r .AccessKeyId)"
-            echo "AWS_SECRET_ACCESS_KEY=$(echo "$CREDS" | jq -r .SecretAccessKey)"
-            echo "AWS_SESSION_TOKEN=$(echo "$CREDS" | jq -r .SessionToken)"
-          } >> $GITHUB_ENV
-
       - name: Validate target (describe --connect)
         working-directory: ${{ env.MANIFEST_DIR }}
         run: aws-smus-cicd-cli describe --manifest manifest.yaml --targets "$STAGE" --connect
@@ -657,24 +604,6 @@ jobs:
             echo "GIT_COMMIT=${{ github.sha }}"
             echo "MODEL_PACKAGE_ARN=$PREPARE_MODEL_PACKAGE_ARN"
             echo "MODEL_DATA_URL_OVERRIDE=$OVERRIDE"
-          } >> $GITHUB_ENV
-
-      - name: Assume project role
-        shell: bash
-        run: |
-          ACCOUNT_ID=$(aws sts get-caller-identity --query Account --output text)
-          echo "AWS_ACCOUNT_ID=$ACCOUNT_ID" >> "$GITHUB_ENV"
-          CREDS=$(aws sts assume-role \
-            --role-arn "arn:aws:iam::${ACCOUNT_ID}:role/${{ vars.DEPLOYMENT_ROLE_NAME }}" \
-            --role-session-name "promote-prod-${{ github.run_id }}" \
-            --query 'Credentials' --output json)
-          echo "::add-mask::$(echo "$CREDS" | jq -r .AccessKeyId)"
-          echo "::add-mask::$(echo "$CREDS" | jq -r .SecretAccessKey)"
-          echo "::add-mask::$(echo "$CREDS" | jq -r .SessionToken)"
-          {
-            echo "AWS_ACCESS_KEY_ID=$(echo "$CREDS" | jq -r .AccessKeyId)"
-            echo "AWS_SECRET_ACCESS_KEY=$(echo "$CREDS" | jq -r .SecretAccessKey)"
-            echo "AWS_SESSION_TOKEN=$(echo "$CREDS" | jq -r .SessionToken)"
           } >> $GITHUB_ENV
 
       - name: Validate target (describe --connect)
