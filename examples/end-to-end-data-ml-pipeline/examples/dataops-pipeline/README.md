@@ -20,12 +20,15 @@ ingest_bank_data (Glue)
 ```bash
 pip install aws-smus-cicd-cli
 
-export AWS_ACCOUNT_ID=<your-account-id>
-export DEV_DOMAIN_NAME=<your-domain-name>       # e.g. Default_05052026_Domain
-export DEV_DOMAIN_REGION=<your-region>                  # e.g. us-east-1
-export DEV_PROJECT_NAME=<your-project-name>      # e.g. bank-mktg-dev
-export PROJECT_ROLE=<your-login-role-name>       # e.g. Admin-SMUSCLI
+# Account ID is resolved from your AWS credentials (aws sts get-caller-identity)
+# and the domain is resolved by region + the manifest's `purpose` tag
+# (default: smus-cicd-testing), so neither AWS_ACCOUNT_ID nor a domain NAME
+# needs to be exported.
+export DEV_DOMAIN_REGION=<your-region>      # required (e.g. us-east-1)
+export DEV_PROJECT_NAME=<your-dev-project>  # optional (default: dev-marketing)
 ```
+
+See the [parent e2e example README](../../README.md#prerequisites) for the full variable list and the CI/CD setup.
 
 ## Deploy and Run
 
@@ -76,4 +79,4 @@ The workflow YAML uses `{proj.connection.default.s3_shared.s3Uri}` placeholders 
 - Missing IAM/Lake Formation permissions on the Glue Catalog database
 - Invalid S3 paths (check that deploy uploaded files correctly)
 
-**Athena table creation fails:** The execution role needs Lake Formation `Describe` and `CreateTable` permissions on the target database. See [Part 2 — Prerequisites](../../docs/part2-end-to-end-mlops-dataops-example.md#prerequisites).
+**Athena table creation fails:** The execution role needs Lake Formation `Describe` and `CreateTable` permissions on the target database.
