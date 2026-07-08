@@ -40,13 +40,12 @@
 #
 # Trigger: workflow_dispatch (choose start stage).
 #
-# Required GitHub config (all jobs run in the `test-aws-account` environment):
-#   secrets: AWS_ROLE_ARN_DEV / AWS_ROLE_ARN_TEST / AWS_ROLE_ARN_PROD
-#                         - per-stage OIDC roles
+# Required GitHub config (all jobs run in the `dev-aws-account` environment):
+#   secret: AWS_ROLE_ARN_DEV   - OIDC role assumed by every stage
 #   vars: DOMAIN_REGION        - Region (default us-east-1)
 #   vars: MLOPS_APPROVERS      - Approver usernames for the manual gates
-# All AWS work runs directly as the per-stage OIDC role (single-hop); there
-# is no second-hop role assumption, so DEPLOYMENT_ROLE_NAME is not needed.
+# All AWS work runs directly as that OIDC role (single-hop); there is no
+# second-hop role assumption, so DEPLOYMENT_ROLE_NAME is not needed.
 # AWS_ACCOUNT_ID is derived at runtime via `aws sts get-caller-identity`.
 # =============================================================================
 
