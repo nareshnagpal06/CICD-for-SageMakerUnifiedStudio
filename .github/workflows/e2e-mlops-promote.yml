@@ -430,7 +430,7 @@ jobs:
       - name: Authenticate via OIDC
         uses: aws-actions/configure-aws-credentials@v6
         with:
-          role-to-assume: ${{ secrets.AWS_ROLE_ARN_TEST }}
+          role-to-assume: ${{ secrets.AWS_ROLE_ARN_DEV }}
           aws-region: ${{ vars.DOMAIN_REGION || 'us-east-1' }}
 
       - name: Install CLI
@@ -584,7 +584,7 @@ jobs:
       - name: Authenticate via OIDC
         uses: aws-actions/configure-aws-credentials@v6
         with:
-          role-to-assume: ${{ secrets.AWS_ROLE_ARN_PROD }}
+          role-to-assume: ${{ secrets.AWS_ROLE_ARN_DEV }}
           aws-region: ${{ vars.DOMAIN_REGION || 'us-east-1' }}
 
       - name: Install CLI

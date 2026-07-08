@@ -188,7 +188,7 @@ jobs:
     secrets:
       # Pass the stage-specific OIDC role into the reusable workflow's role
       # slot: dev -> DEV, prod -> PROD, everything else -> TEST.
-      AWS_ROLE_ARN_TEST: ${{ matrix.stage == 'dev' && secrets.AWS_ROLE_ARN_DEV || matrix.stage == 'prod' && secrets.AWS_ROLE_ARN_PROD || secrets.AWS_ROLE_ARN_TEST }}
+      AWS_ROLE_ARN_TEST: ${{ secrets.AWS_ROLE_ARN_DEV }}
 
   # --------------------------------------------------------------------------
   # Job 3: Upload the training source bundle (sourcedir.tar.gz) to S3
@@ -264,7 +264,7 @@ jobs:
       - name: Configure AWS credentials
         uses: aws-actions/configure-aws-credentials@v4
         with:
-          role-to-assume: ${{ matrix.stage == 'dev' && secrets.AWS_ROLE_ARN_DEV || matrix.stage == 'prod' && secrets.AWS_ROLE_ARN_PROD || secrets.AWS_ROLE_ARN_TEST }}
+          role-to-assume: ${{ secrets.AWS_ROLE_ARN_DEV }}
           aws-region: ${{ vars.DOMAIN_REGION }}
           role-session-name: smus-mlops-sourcedir-upload
 
