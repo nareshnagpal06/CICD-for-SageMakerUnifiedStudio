@@ -59,26 +59,42 @@ jobs:
             "${{ vars.DOMAIN_REGION }}" \
             "bank-mktg-dev"
 
-  # Dev deploy via the shared reusable.
+  # Deploy dev -> test -> prod sequentially (max-parallel: 1) via the shared
+  # reusable. Each matrix entry carries its own role secret + environment, so a
+  # stage can move to a distinct role/account later by editing just that entry.
+  # Today all three use AWS_ROLE_ARN_DEV + dev-aws-account (the dev role is a
+  # member of all three projects). The set of stages comes from the `stages`
+  # input ('all' -> dev,test,prod; a single stage -> just that one).
   deploy:
-    name: Deploy MLOps Pipeline (dev)
+    name: Deploy MLOps Pipeline (${{ matrix.stage }})
     needs: [setup-infra]
-    if: ${{ always() && needs.setup-infra.result != 'failure' && needs.setup-infra.result != 'cancelled' && (inputs.stages == '' || inputs.stages == 'all' || inputs.stages == 'dev') }}
+    if: ${{ always() && needs.setup-infra.result != 'failure' && needs.setup-infra.result != 'cancelled' }}
+    strategy:
+      fail-fast: true
+      max-parallel: 1
+      matrix:
+        include: >-
+          ${{ fromJSON(
+          inputs.stages == 'dev' && '[{"stage":"dev","role_secret":"AWS_ROLE_ARN_DEV","environment":"dev-aws-account"}]'
+          || inputs.stages == 'test' && '[{"stage":"test","role_secret":"AWS_ROLE_ARN_DEV","environment":"dev-aws-account"}]'
+          || inputs.stages == 'prod' && '[{"stage":"prod","role_secret":"AWS_ROLE_ARN_DEV","environment":"dev-aws-account"}]'
+          || '[{"stage":"dev","role_secret":"AWS_ROLE_ARN_DEV","environment":"dev-aws-account"},{"stage":"test","role_secret":"AWS_ROLE_ARN_DEV","environment":"dev-aws-account"},{"stage":"prod","role_secret":"AWS_ROLE_ARN_DEV","environment":"dev-aws-account"}]'
+          ) }}
     uses: ./.github/workflows/smus-direct-deploy.yml
     secrets:
-      AWS_ROLE_ARN: ${{ secrets.AWS_ROLE_ARN_DEV }}
+      AWS_ROLE_ARN: ${{ secrets[matrix.role_secret] }}
     with:
       manifest_path: 'examples/end-to-end-data-ml-pipeline/examples/mlops-pipeline/manifest.yaml'
-      target: 'dev'
-      environment_name: 'dev-aws-account'
+      target: ${{ matrix.stage }}
+      environment_name: ${{ matrix.environment }}
       skip_tests: true
 
   # Build + upload the training source bundle to the dev project's shared S3
-  # AFTER the dev deploy, so the deploy's src/ sync cannot clobber it.
+  # after the deploys (dev only), so the deploy's src/ sync cannot clobber it.
   upload-sourcedir:
     name: Upload Artifacts (dev)
     needs: [deploy]
-    if: ${{ always() && needs.deploy.result == 'success' }}
+    if: ${{ always() && needs.deploy.result == 'success' && (inputs.stages == '' || inputs.stages == 'all' || inputs.stages == 'dev') }}
     runs-on: ubuntu-latest
     environment: dev-aws-account
     steps:
@@ -111,8 +127,6 @@ jobs:
         env:
           DOMAIN_REGION: ${{ vars.DOMAIN_REGION }}
           DEV_DOMAIN_REGION: ${{ vars.DOMAIN_REGION }}
-          TEST_DOMAIN_REGION: ${{ vars.DOMAIN_REGION }}
-          PROD_DOMAIN_REGION: ${{ vars.DOMAIN_REGION }}
           AWS_ACCOUNT_ID: ${{ steps.aws-account.outputs.account-id }}
         run: |
           set -euo pipefail
@@ -139,29 +153,3 @@ jobs:
           DEST="${S3_URI%/}/bank-mktg/mlops_pipeline/src/sourcedir.tar.gz"
           aws s3 cp "$SRC" "$DEST"
           aws s3 ls "$DEST"
-
-  deploy-test:
-    name: Deploy MLOps Pipeline (test)
-    needs: [deploy, upload-sourcedir]
-    if: ${{ always() && (((inputs.stages == '' || inputs.stages == 'all') && needs.deploy.result == 'success' && needs.upload-sourcedir.result == 'success') || inputs.stages == 'test') }}
-    uses: ./.github/workflows/smus-direct-deploy.yml
-    secrets:
-      AWS_ROLE_ARN: ${{ secrets.AWS_ROLE_ARN_DEV }}
-    with:
-      manifest_path: 'examples/end-to-end-data-ml-pipeline/examples/mlops-pipeline/manifest.yaml'
-      target: 'test'
-      environment_name: 'dev-aws-account'
-      skip_tests: true
-
-  deploy-prod:
-    name: Deploy MLOps Pipeline (prod)
-    needs: [deploy-test]
-    if: ${{ always() && (((inputs.stages == '' || inputs.stages == 'all') && needs.deploy-test.result == 'success') || inputs.stages == 'prod') }}
-    uses: ./.github/workflows/smus-direct-deploy.yml
-    secrets:
-      AWS_ROLE_ARN: ${{ secrets.AWS_ROLE_ARN_DEV }}
-    with:
-      manifest_path: 'examples/end-to-end-data-ml-pipeline/examples/mlops-pipeline/manifest.yaml'
-      target: 'prod'
-      environment_name: 'dev-aws-account'
-      skip_tests: true
