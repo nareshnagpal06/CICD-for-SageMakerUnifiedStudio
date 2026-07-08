@@ -406,7 +406,7 @@ jobs:
         needs.prepare.outputs.start_at == 'test'
       )
     runs-on: ubuntu-latest
-    environment: test-aws-account
+    environment: dev-aws-account
     env:
       STAGE: test
       ENDPOINT_NAME: bank-mktg-prediction-test
@@ -560,7 +560,7 @@ jobs:
         needs.prepare.outputs.start_at == 'prod'
       )
     runs-on: ubuntu-latest
-    environment: prod-aws-account
+    environment: dev-aws-account
     env:
       STAGE: prod
       ENDPOINT_NAME: bank-mktg-prediction-prod

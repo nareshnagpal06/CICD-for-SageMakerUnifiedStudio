@@ -205,7 +205,7 @@ jobs:
     name: Upload Artifacts (${{ matrix.stage }})
     needs: [resolve, deploy]
     runs-on: ubuntu-latest
-    environment: ${{ matrix.stage }}-aws-account
+    environment: dev-aws-account
     strategy:
       fail-fast: true
       max-parallel: 1
