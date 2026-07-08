@@ -26,6 +26,6 @@ jobs:
       AWS_ROLE_ARN: ${{ secrets.AWS_ROLE_ARN_DEV }}
     with:
       manifest_path: 'examples/end-to-end-data-ml-pipeline/examples/dataops-pipeline/manifest.yaml'
-      test_target: 'dev'
+      target: 'dev'
       environment_name: 'dev-aws-account'
       skip_tests: true

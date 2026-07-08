@@ -24,7 +24,7 @@ jobs:
       AWS_ROLE_ARN: ${{ secrets.AWS_ROLE_ARN_TEST }}
     with:
       manifest_path: 'examples/analytic-workflow/data-notebooks/manifest.yaml'
-      test_target: 'test'
+      target: 'test'
 
   deploy-idc:
     uses: ./.github/workflows/smus-direct-deploy.yml
@@ -32,4 +32,4 @@ jobs:
       AWS_ROLE_ARN: ${{ secrets.AWS_ROLE_ARN_TEST }}
     with:
       manifest_path: 'examples/analytic-workflow/data-notebooks/manifest-idc.yaml'
-      test_target: 'test-idc'
+      target: 'test-idc'

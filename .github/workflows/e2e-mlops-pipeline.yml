@@ -12,6 +12,12 @@ on:
       - '.github/workflows/e2e-mlops-pipeline.yml'
   workflow_dispatch:
     inputs:
+      stages:
+        description: "Stage(s) to deploy ('all' = dev -> test -> prod)"
+        required: true
+        default: "all"
+        type: choice
+        options: [all, dev, test, prod]
       setup_infra:
         description: "Provision MLOps infra (EventBridge + Lambda deploy trigger) — runs once in dev"
         required: false
@@ -26,7 +32,7 @@ jobs:
   # Provision the deploy trigger (EventBridge + Lambda) once, in dev.
   setup-infra:
     name: Setup ML Training Pipeline Infrastructure (dev)
-    if: ${{ github.event_name != 'workflow_dispatch' || inputs.setup_infra }}
+    if: ${{ (github.event_name != 'workflow_dispatch' || inputs.setup_infra) && (inputs.stages == '' || inputs.stages == 'all' || inputs.stages == 'dev') }}
     runs-on: ubuntu-latest
     environment: dev-aws-account
     steps:
@@ -59,7 +65,7 @@ jobs:
   deploy:
     name: Deploy MLOps Pipeline (dev)
     needs: [setup-infra]
-    if: ${{ always() && needs.setup-infra.result != 'failure' && needs.setup-infra.result != 'cancelled' }}
+    if: ${{ always() && needs.setup-infra.result != 'failure' && needs.setup-infra.result != 'cancelled' && (inputs.stages == '' || inputs.stages == 'all' || inputs.stages == 'dev') }}
     runs-on: ubuntu-latest
     environment: dev-aws-account
     env:
@@ -133,23 +139,25 @@ jobs:
   deploy-test:
     name: Deploy MLOps Pipeline (test)
     needs: [deploy]
+    if: ${{ always() && (((inputs.stages == '' || inputs.stages == 'all') && needs.deploy.result == 'success') || inputs.stages == 'test') }}
     uses: ./.github/workflows/smus-direct-deploy.yml
     secrets:
       AWS_ROLE_ARN: ${{ secrets.AWS_ROLE_ARN_DEV }}
     with:
       manifest_path: 'examples/end-to-end-data-ml-pipeline/examples/mlops-pipeline/manifest.yaml'
-      test_target: 'test'
+      target: 'test'
       environment_name: 'dev-aws-account'
       skip_tests: true
 
   deploy-prod:
     name: Deploy MLOps Pipeline (prod)
     needs: [deploy-test]
+    if: ${{ always() && (((inputs.stages == '' || inputs.stages == 'all') && needs.deploy-test.result == 'success') || inputs.stages == 'prod') }}
     uses: ./.github/workflows/smus-direct-deploy.yml
     secrets:
       AWS_ROLE_ARN: ${{ secrets.AWS_ROLE_ARN_DEV }}
     with:
       manifest_path: 'examples/end-to-end-data-ml-pipeline/examples/mlops-pipeline/manifest.yaml'
-      test_target: 'prod'
+      target: 'prod'
       environment_name: 'dev-aws-account'
       skip_tests: true
