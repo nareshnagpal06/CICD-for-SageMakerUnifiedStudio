@@ -65,7 +65,7 @@ jobs:
     # the setup_infra checkbox.
     if: ${{ github.event_name != 'workflow_dispatch' || inputs.setup_infra }}
     runs-on: ubuntu-latest
-    environment: test-aws-account
+    environment: dev-aws-account
     steps:
       - name: Banner - Pipeline Overview
         run: |
@@ -205,7 +205,7 @@ jobs:
     name: Upload Artifacts (${{ matrix.stage }})
     needs: [resolve, deploy]
     runs-on: ubuntu-latest
-    environment: test-aws-account
+    environment: ${{ matrix.stage }}-aws-account
     strategy:
       fail-fast: true
       max-parallel: 1

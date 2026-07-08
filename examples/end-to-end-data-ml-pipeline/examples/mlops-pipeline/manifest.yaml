@@ -49,7 +49,7 @@ stages:
         purpose: ${DOMAIN_TAG_PURPOSE:smus-cicd-testing}
       region: ${DEV_DOMAIN_REGION}
     project:
-      name: ${DEV_PROJECT_NAME:dev-marketing}
+      name: ${DEV_PROJECT_NAME:e2e-data-ml-ops-dev}
     environment_variables:
       ATHENA_DB_NAME: bank_mktg_dev
       EXPERIMENT_NAME: bank-mktg-experiments
@@ -89,7 +89,7 @@ stages:
         purpose: ${DOMAIN_TAG_PURPOSE:smus-cicd-testing}
       region: ${TEST_DOMAIN_REGION:us-east-1}
     project:
-      name: ${TEST_PROJECT_NAME:test-marketing}
+      name: ${TEST_PROJECT_NAME:e2e-data-ml-ops-test}
     environment_variables:
       ATHENA_DB_NAME: bank_mktg_test
       EXPERIMENT_NAME: bank-mktg-experiments
@@ -127,7 +127,7 @@ stages:
         purpose: ${DOMAIN_TAG_PURPOSE:smus-cicd-testing}
       region: ${PROD_DOMAIN_REGION:us-east-1}
     project:
-      name: ${PROD_PROJECT_NAME:prod-marketing}
+      name: ${PROD_PROJECT_NAME:e2e-data-ml-ops-prod}
     environment_variables:
       ATHENA_DB_NAME: bank_mktg_prod
       EXPERIMENT_NAME: bank-mktg-experiments

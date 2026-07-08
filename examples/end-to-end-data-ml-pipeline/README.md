@@ -195,19 +195,19 @@ pip install aws-smus-cicd-cli
 #
 # Only DEV_DOMAIN_REGION is strictly required (the manifest has no default
 # for it). Everything else below is OPTIONAL — the manifest supplies defaults
-# (project names -> dev/test/prod-marketing, regions -> us-east-1,
+# (project names -> e2e-data-ml-ops-{dev,test,prod}, regions -> us-east-1,
 # MLFLOW_TRACKING_SERVER_NAME -> smus-integration-mlflow-us-east-1). Set them
 # only to override the defaults.
 
 # DataOps example (dev stage only):
 export DEV_DOMAIN_REGION=<your-region>          # required
-export DEV_PROJECT_NAME=<your-dev-project>      # optional (default: dev-marketing)
+export DEV_PROJECT_NAME=<your-dev-project>      # optional (default: e2e-data-ml-ops-dev)
 
 # MLOps example also validates test/prod, so additionally set (all optional):
 export TEST_DOMAIN_REGION=<your-region>         # optional (default: us-east-1)
-export TEST_PROJECT_NAME=<your-test-project>    # optional (default: test-marketing)
+export TEST_PROJECT_NAME=<your-test-project>    # optional (default: e2e-data-ml-ops-test)
 export PROD_DOMAIN_REGION=<your-region>         # optional (default: us-east-1)
-export PROD_PROJECT_NAME=<your-prod-project>    # optional (default: prod-marketing)
+export PROD_PROJECT_NAME=<your-prod-project>    # optional (default: e2e-data-ml-ops-prod)
 export MLFLOW_TRACKING_SERVER_NAME=<your-mlflow-server-name>  # optional (has default)
 
 # Optional: override the domain tag used for resolution (defaults to
@@ -351,7 +351,7 @@ Some values that used to be configured are now derived at runtime and no longer 
 | Variable | Scope | Purpose |
 | -------- | ----- | ------- |
 | `DOMAIN_REGION` | environment (`test-aws-account`) | Region for all stages (feeds `*_DOMAIN_REGION`) |
-| `DEV_PROJECT_NAME` / `TEST_PROJECT_NAME` / `PROD_PROJECT_NAME` | repo | SMUS project per stage (optional; manifest and workflows default to `dev/test/prod-marketing`) |
+| `DEV_PROJECT_NAME` / `TEST_PROJECT_NAME` / `PROD_PROJECT_NAME` | repo | SMUS project per stage (optional; manifest and workflows default to `e2e-data-ml-ops-{dev,test,prod}`) |
 | `MLOPS_APPROVERS` | repo | Promote-gate approver list, comma/newline-separated (promote workflow; requires Issues enabled) |
 | `MLFLOW_TRACKING_SERVER_NAME` | repo/environment | MLflow tracking server name (optional; manifest has a default) |
 | `DOMAIN_TAG_PURPOSE` | repo/environment | Optional override for the domain `purpose` tag (defaults to `smus-cicd-testing`) |
