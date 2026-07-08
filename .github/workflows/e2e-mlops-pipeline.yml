@@ -59,20 +59,28 @@ jobs:
             "${{ vars.DOMAIN_REGION }}" \
             "bank-mktg-dev"
 
-  # Deploy dev, then build + upload the training source bundle to the dev
-  # project's shared S3 (after deploy, so the deploy's src/ sync cannot clobber
-  # sourcedir.tar.gz). test -> prod follow via the reusable.
+  # Dev deploy via the shared reusable.
   deploy:
     name: Deploy MLOps Pipeline (dev)
     needs: [setup-infra]
     if: ${{ always() && needs.setup-infra.result != 'failure' && needs.setup-infra.result != 'cancelled' && (inputs.stages == '' || inputs.stages == 'all' || inputs.stages == 'dev') }}
+    uses: ./.github/workflows/smus-direct-deploy.yml
+    secrets:
+      AWS_ROLE_ARN: ${{ secrets.AWS_ROLE_ARN_DEV }}
+    with:
+      manifest_path: 'examples/end-to-end-data-ml-pipeline/examples/mlops-pipeline/manifest.yaml'
+      target: 'dev'
+      environment_name: 'dev-aws-account'
+      skip_tests: true
+
+  # Build + upload the training source bundle to the dev project's shared S3
+  # AFTER the dev deploy, so the deploy's src/ sync cannot clobber it.
+  upload-sourcedir:
+    name: Upload Artifacts (dev)
+    needs: [deploy]
+    if: ${{ always() && needs.deploy.result == 'success' }}
     runs-on: ubuntu-latest
     environment: dev-aws-account
-    env:
-      DOMAIN_REGION: ${{ vars.DOMAIN_REGION }}
-      DEV_DOMAIN_REGION: ${{ vars.DOMAIN_REGION }}
-      TEST_DOMAIN_REGION: ${{ vars.DOMAIN_REGION }}
-      PROD_DOMAIN_REGION: ${{ vars.DOMAIN_REGION }}
     steps:
       - uses: actions/checkout@v4
 
@@ -91,7 +99,7 @@ jobs:
         with:
           role-to-assume: ${{ secrets.AWS_ROLE_ARN_DEV }}
           aws-region: ${{ vars.DOMAIN_REGION }}
-          role-session-name: smus-mlops-dev-deploy
+          role-session-name: smus-mlops-sourcedir-upload
 
       - name: Get AWS Account ID
         id: aws-account
@@ -99,16 +107,12 @@ jobs:
           ACCOUNT_ID=$(aws sts get-caller-identity --query Account --output text)
           echo "account-id=$ACCOUNT_ID" >> "$GITHUB_OUTPUT"
 
-      - name: Deploy dev
-        env:
-          AWS_ACCOUNT_ID: ${{ steps.aws-account.outputs.account-id }}
-        run: |
-          aws-smus-cicd-cli deploy \
-            --manifest examples/end-to-end-data-ml-pipeline/examples/mlops-pipeline/manifest.yaml \
-            --targets dev
-
       - name: Build + upload sourcedir.tar.gz
         env:
+          DOMAIN_REGION: ${{ vars.DOMAIN_REGION }}
+          DEV_DOMAIN_REGION: ${{ vars.DOMAIN_REGION }}
+          TEST_DOMAIN_REGION: ${{ vars.DOMAIN_REGION }}
+          PROD_DOMAIN_REGION: ${{ vars.DOMAIN_REGION }}
           AWS_ACCOUNT_ID: ${{ steps.aws-account.outputs.account-id }}
         run: |
           set -euo pipefail
@@ -138,8 +142,8 @@ jobs:
 
   deploy-test:
     name: Deploy MLOps Pipeline (test)
-    needs: [deploy]
-    if: ${{ always() && (((inputs.stages == '' || inputs.stages == 'all') && needs.deploy.result == 'success') || inputs.stages == 'test') }}
+    needs: [deploy, upload-sourcedir]
+    if: ${{ always() && (((inputs.stages == '' || inputs.stages == 'all') && needs.deploy.result == 'success' && needs.upload-sourcedir.result == 'success') || inputs.stages == 'test') }}
     uses: ./.github/workflows/smus-direct-deploy.yml
     secrets:
       AWS_ROLE_ARN: ${{ secrets.AWS_ROLE_ARN_DEV }}
