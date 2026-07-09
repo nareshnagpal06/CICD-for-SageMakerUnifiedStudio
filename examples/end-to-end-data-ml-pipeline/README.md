@@ -156,7 +156,7 @@ flowchart TD
     style Execution fill:transparent,stroke:#7b1fa2,stroke-width:2px
 ```
 
-The SMUS CLI handles resource provisioning in dependency order, stage-specific configuration substitution, and the full deployment lifecycle. GitHub Actions automates this across environments using OIDC authentication (no long-lived credentials) — each workflow assumes a per-stage OIDC role directly (single-hop).
+The SMUS CLI handles resource provisioning in dependency order, stage-specific configuration substitution, and the full deployment lifecycle. GitHub Actions automates this using OIDC authentication (no long-lived credentials) — every job runs in a single GitHub Environment (`dev-aws-account`) and assumes one OIDC role (`AWS_ROLE_ARN_DEV`) directly (single-hop). Stages are distinguished by the manifest target (project + region), not by separate roles.
 
 ## Pipelines
 
@@ -247,18 +247,16 @@ All other stage variables are optional and default to the manifest values (see [
 
 ### 2. Configure GitHub for CI/CD
 
-All jobs run in a single GitHub Environment named `test-aws-account`. Add there:
+All jobs run in a single GitHub Environment named `dev-aws-account`, which holds the OIDC role secret and region. Add them there:
 
 ```bash
 REPO=<owner>/<repo>
 
-# Per-stage OIDC role secrets (assumed directly by the workflows — single-hop)
-gh secret set AWS_ROLE_ARN_DEV  --repo "$REPO" --env test-aws-account --body "arn:aws:iam::<acct>:role/<dev-oidc-role>"
-gh secret set AWS_ROLE_ARN_TEST --repo "$REPO" --env test-aws-account --body "arn:aws:iam::<acct>:role/<test-oidc-role>"
-gh secret set AWS_ROLE_ARN_PROD --repo "$REPO" --env test-aws-account --body "arn:aws:iam::<acct>:role/<prod-oidc-role>"
+# Single OIDC role secret (assumed directly by every job — single-hop, single-account)
+gh secret set AWS_ROLE_ARN_DEV --repo "$REPO" --env dev-aws-account --body "arn:aws:iam::<acct>:role/<dev-oidc-role>"
 
-# Region (feeds *_DOMAIN_REGION); everything else has manifest defaults
-gh variable set DOMAIN_REGION --repo "$REPO" --env test-aws-account --body "us-east-1"
+# Region (feeds every stage's *_DOMAIN_REGION); everything else has manifest defaults
+gh variable set DOMAIN_REGION --repo "$REPO" --env dev-aws-account --body "us-east-1"
 
 # Optional: promote-gate approvers (comma/newline-separated; defaults to one user)
 gh variable set MLOPS_APPROVERS --repo "$REPO" --body "user1,user2"
@@ -281,7 +279,7 @@ cd examples/end-to-end-data-ml-pipeline
 ./scripts/setup-github-oidc.sh     # GitHub OIDC provider + IAM role for CI/CD
 ```
 
-Ensure each per-stage OIDC role is a **member/owner** of its SMUS project so it can deploy (the deploying role becomes the project owner when it creates the project).
+Because every stage uses the same OIDC role (`AWS_ROLE_ARN_DEV`), that role must be a **member/owner** of each SMUS project it deploys to (`e2e-data-ml-ops-dev`, `-test`, `-prod`). The deploying role automatically becomes the owner of any project it creates; for pre-existing projects, add the role as a member so it can list connections and deploy. (If it is only a member of the dev project, only `dev` deploys succeed.)
 
 ### 5. Deploy the DataOps pipeline (dev)
 
@@ -326,13 +324,13 @@ GitHub Actions workflows (at the repository root) automate multi-account deploym
 | MLOps Training | [`e2e-mlops-pipeline.yml`](../../.github/workflows/e2e-mlops-pipeline.yml) | Deploy training pipeline + provision MLOps infra (dev) |
 | MLOps Promote | [`e2e-mlops-promote.yml`](../../.github/workflows/e2e-mlops-promote.yml) | Event-driven dev → test → prod promote cascade on model approval |
 
-CI/CD uses OIDC authentication (no long-lived credentials). Each workflow assumes its per-stage OIDC role (`AWS_ROLE_ARN_DEV`/`_TEST`/`_PROD`) directly — single-hop, no separate deployment role. The MLOps training workflow provisions the EventBridge + Lambda deploy trigger in dev only — model approval happens in dev's registry and drives the promote cascade across stages.
+CI/CD uses OIDC authentication (no long-lived credentials). Every job runs in the single `dev-aws-account` environment and assumes one OIDC role (`AWS_ROLE_ARN_DEV`) directly — single-hop, single-account, no separate deployment role. The DataOps and MLOps deploy jobs call the shared [`smus-direct-deploy.yml`](../../.github/workflows/smus-direct-deploy.yml) reusable, mapping `AWS_ROLE_ARN_DEV` into its generic `AWS_ROLE_ARN` secret and passing `environment_name: dev-aws-account`; stages differ only by the manifest target (project + region). The MLOps training workflow provisions the EventBridge + Lambda deploy trigger in dev only — model approval happens in dev's registry and drives the promote cascade across stages.
 
 The promote workflow's stage gates (`approve-test`, `approve-prod`) use the [`trstringer/manual-approval`](https://github.com/trstringer/manual-approval) action, which opens a tracking **issue** and waits for a listed approver to comment `approved` (or `approve`/`lgtm`/`yes`). This requires **Issues enabled** on the repository and the workflow's `issues: write` permission. Approvers come from the `MLOPS_APPROVERS` variable (comma/newline-separated usernames); if unset it falls back to a single default approver.
 
 ### GitHub configuration (CI source of truth)
 
-The workflows read their configuration from GitHub Actions **variables** and **secrets** — there is no config file checked into the repo. In these examples all jobs run in a single GitHub Environment named `test-aws-account`, so the per-stage OIDC role secrets and the `DOMAIN_REGION` variable live there.
+The workflows read their configuration from GitHub Actions **variables** and **secrets** — there is no config file checked into the repo. In these examples all jobs run in a single GitHub Environment named `dev-aws-account`, so the OIDC role secret (`AWS_ROLE_ARN_DEV`) and the `DOMAIN_REGION` variable live there.
 
 Some values that used to be configured are now derived at runtime and no longer need to be set:
 
@@ -340,17 +338,17 @@ Some values that used to be configured are now derived at runtime and no longer 
 - **Domain** — resolved by region + the `purpose` tag on the manifest's domain block (default `smus-cicd-testing`), so no domain *name* variable is needed.
 - **Project owner** — the deploying principal is already the project owner, so the manifests no longer hardcode an owner role.
 
-**Secrets** (stored in the `test-aws-account` environment):
+**Secrets** (stored in the `dev-aws-account` environment):
 
 | Secret | Purpose |
 | ------ | ------- |
-| `AWS_ROLE_ARN_DEV` / `AWS_ROLE_ARN_TEST` / `AWS_ROLE_ARN_PROD` | Per-stage OIDC roles assumed by the workflows (dev → DEV, test → TEST, prod → PROD) |
+| `AWS_ROLE_ARN_DEV` | Single OIDC role assumed by every job (all stages); mapped into the reusable's generic `AWS_ROLE_ARN` |
 
 **Variables:**
 
 | Variable | Scope | Purpose |
 | -------- | ----- | ------- |
-| `DOMAIN_REGION` | environment (`test-aws-account`) | Region for all stages (feeds `*_DOMAIN_REGION`) |
+| `DOMAIN_REGION` | environment (`dev-aws-account`) | Region for all stages (feeds `*_DOMAIN_REGION`) |
 | `DEV_PROJECT_NAME` / `TEST_PROJECT_NAME` / `PROD_PROJECT_NAME` | repo | SMUS project per stage (optional; manifest and workflows default to `e2e-data-ml-ops-{dev,test,prod}`) |
 | `MLOPS_APPROVERS` | repo | Promote-gate approver list, comma/newline-separated (promote workflow; requires Issues enabled) |
 | `MLFLOW_TRACKING_SERVER_NAME` | repo/environment | MLflow tracking server name (optional; manifest has a default) |
