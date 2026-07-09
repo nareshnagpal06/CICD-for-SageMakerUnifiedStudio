@@ -241,7 +241,7 @@ PYEOF
 
 (cd "$LAMBDA_DIR" && zip -q function.zip lambda_function.py)
 
-GITHUB_REPO="${GITHUB_REPO:-velpualvi/blog-smus-ops}"
+GITHUB_REPO="${GITHUB_REPO:?GITHUB_REPO must be set (owner/repo) so the deploy trigger dispatches model-approved events to the correct repository}"
 GITHUB_TOKEN_SECRET_ARN="arn:aws:secretsmanager:${REGION}:${ACCOUNT_ID}:secret:bank-mktg/github-token"
 
 if aws lambda get-function --function-name "$FUNCTION_NAME" &>/dev/null; then
