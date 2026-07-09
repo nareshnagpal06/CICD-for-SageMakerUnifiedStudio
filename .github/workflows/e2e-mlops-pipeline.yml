@@ -88,6 +88,10 @@ jobs:
       target: ${{ matrix.stage }}
       environment_name: ${{ matrix.environment }}
       skip_tests: true
+      # Resolves MLFLOW_TRACKING_SERVER_NAME to smus-integration-mlflow-<region>
+      # (matches the manifest default) so the tracking-server ARN is valid; the
+      # reusable only checks the server exists (CloudFormation only if missing).
+      setup_mlflow: true
 
   # Build + upload the training source bundle to the dev project's shared S3
   # after the deploys (dev only), so the deploy's src/ sync cannot clobber it.
