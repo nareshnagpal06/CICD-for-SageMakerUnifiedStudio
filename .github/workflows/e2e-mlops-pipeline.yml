@@ -96,7 +96,7 @@ jobs:
   # Build + upload the training source bundle to the dev project's shared S3
   # after the deploys (dev only), so the deploy's src/ sync cannot clobber it.
   upload-sourcedir:
-    name: Upload Artifacts (dev)
+    name: Upload Artifacts
     needs: [deploy]
     if: ${{ always() && needs.deploy.result == 'success' && (inputs.stages == '' || inputs.stages == 'all' || inputs.stages == 'dev') }}
     runs-on: ubuntu-latest
