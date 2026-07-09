@@ -18,12 +18,14 @@ permissions:
 
 jobs:
   deploy:
+    # Uses the shared reusable, running in the dev-aws-account environment. The
+    # dev OIDC role (AWS_ROLE_ARN_DEV) is mapped into the reusable's generic
+    # AWS_ROLE_ARN secret; the region comes from the environment's DOMAIN_REGION.
     uses: ./.github/workflows/smus-direct-deploy.yml
+    secrets:
+      AWS_ROLE_ARN: ${{ secrets.AWS_ROLE_ARN_DEV }}
     with:
       manifest_path: 'examples/end-to-end-data-ml-pipeline/examples/dataops-pipeline/manifest.yaml'
-      test_target: 'dev'
+      target: 'dev'
+      environment_name: 'dev-aws-account'
       skip_tests: true
-    secrets:
-      # DataOps deploys to the dev stage, so pass the dev OIDC role into the
-      # reusable workflow's role slot.
-      AWS_ROLE_ARN_TEST: ${{ secrets.AWS_ROLE_ARN_DEV }}

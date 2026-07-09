@@ -43,7 +43,7 @@ stages:
         purpose: ${DOMAIN_TAG_PURPOSE:smus-cicd-testing}
       region: ${DEV_DOMAIN_REGION}
     project:
-      name: ${DEV_PROJECT_NAME:dev-marketing}
+      name: ${DEV_PROJECT_NAME:e2e-data-ml-ops-dev}
     environment_variables:
       ATHENA_DB_NAME: bank_mktg_dev
     bootstrap:
