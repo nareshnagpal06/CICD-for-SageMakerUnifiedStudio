@@ -52,6 +52,11 @@ jobs:
           echo "account-id=$ACCOUNT_ID" >> "$GITHUB_OUTPUT"
 
       - name: Provision MLOps infra
+        env:
+          # Dispatch model-approved events back to whichever repo runs this
+          # workflow (portable across forks). Without this the script falls
+          # back to its hardcoded default and events go to the wrong repo.
+          GITHUB_REPO: ${{ github.repository }}
         run: |
           bash examples/end-to-end-data-ml-pipeline/scripts/setup-mlops-infra.sh \
             "dev" \
