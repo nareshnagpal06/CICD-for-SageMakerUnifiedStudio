@@ -2,8 +2,10 @@ name: E2E MLOps Promotion (dev -> test -> prod)
 
 # Promotes a single approved model package across dev -> test -> prod, running
 # the deploy_pipeline workflow in each stage's project with manual approval
-# gates (MLOPS_APPROVERS) before test and prod. All jobs run in the
-# dev-aws-account environment and assume AWS_ROLE_ARN_DEV (single-account).
+# gates before test and prod. Approval is via a GitHub issue; any user with
+# write/triage access to the repo (who can manage/close issues) may approve.
+# All jobs run in the dev-aws-account environment and assume AWS_ROLE_ARN_DEV
+# (single-account).
 
 on:
   workflow_dispatch:
@@ -32,7 +34,7 @@ on:
 permissions:
   id-token: write
   contents: read
-  issues: write  # trstringer/manual-approval opens a tracking issue
+  issues: write  # approval gate opens/closes a tracking issue
 
 env:
   WORKFLOW_NAME: deploy_pipeline
@@ -271,21 +273,19 @@ jobs:
       )
     runs-on: ubuntu-latest
     steps:
-      - name: Await approval
-        uses: trstringer/manual-approval@v1
-        timeout-minutes: 1440
-        with:
-          secret: ${{ github.token }}
-          approvers: ${{ vars.MLOPS_APPROVERS || 'velpualvi' }}
-          minimum-approvals: 1
-          issue-title: "Approve TEST deploy: model v${{ needs.prepare.outputs.model_package_version }}"
-          issue-body: >
-            Approve to deploy model package
-            `${{ needs.prepare.outputs.model_package_arn }}`
-            (version ${{ needs.prepare.outputs.model_package_version }}) to
-            the TEST environment. Reply `approved`, `approve`, `lgtm`, or `yes`
-            to proceed; `denied`, `deny`, or `no` to cancel.
-          exclude-workflow-initiator-as-approver: false
+      - uses: actions/checkout@v4
+      # Only users with write/triage access (who can manage and close issues)
+      # may approve. Read-only users and non-collaborators are rejected by the
+      # script. Uses only issues: write.
+      - name: Await approval (repo write access required)
+        env:
+          GH_TOKEN: ${{ github.token }}
+          REPO: ${{ github.repository }}
+          STAGE: TEST
+          MODEL_ARN: ${{ needs.prepare.outputs.model_package_arn }}
+          MODEL_VER: ${{ needs.prepare.outputs.model_package_version }}
+          RUN_URL: ${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }}
+        run: bash examples/end-to-end-data-ml-pipeline/scripts/await_issue_approval.sh
 
   deploy-test:
     name: Deploy to TEST
@@ -417,21 +417,19 @@ jobs:
       )
     runs-on: ubuntu-latest
     steps:
-      - name: Await approval
-        uses: trstringer/manual-approval@v1
-        timeout-minutes: 1440
-        with:
-          secret: ${{ github.token }}
-          approvers: ${{ vars.MLOPS_APPROVERS || 'velpualvi' }}
-          minimum-approvals: 1
-          issue-title: "Approve PROD deploy: model v${{ needs.prepare.outputs.model_package_version }}"
-          issue-body: >
-            Approve to deploy model package
-            `${{ needs.prepare.outputs.model_package_arn }}`
-            (version ${{ needs.prepare.outputs.model_package_version }}) to
-            the PROD environment. Reply `approved`, `approve`, `lgtm`, or `yes`
-            to proceed; `denied`, `deny`, or `no` to cancel.
-          exclude-workflow-initiator-as-approver: false
+      - uses: actions/checkout@v4
+      # Only users with write/triage access (who can manage and close issues)
+      # may approve. Read-only users and non-collaborators are rejected by the
+      # script. Uses only issues: write.
+      - name: Await approval (repo write access required)
+        env:
+          GH_TOKEN: ${{ github.token }}
+          REPO: ${{ github.repository }}
+          STAGE: PROD
+          MODEL_ARN: ${{ needs.prepare.outputs.model_package_arn }}
+          MODEL_VER: ${{ needs.prepare.outputs.model_package_version }}
+          RUN_URL: ${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }}
+        run: bash examples/end-to-end-data-ml-pipeline/scripts/await_issue_approval.sh
 
   deploy-prod:
     name: Deploy to PROD
