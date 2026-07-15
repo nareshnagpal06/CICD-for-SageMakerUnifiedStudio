@@ -12,8 +12,13 @@ on:
       - '.github/workflows/e2e-mlops-pipeline.yml'
   workflow_dispatch:
     inputs:
+      # NOTE: dev/test/prod are logical SMUS stages (separate projects), NOT
+      # separate AWS accounts. Every stage deploys into the same dev AWS
+      # account using AWS_ROLE_ARN_DEV + the dev-aws-account environment (the
+      # dev role is a member of all three projects). This does not deploy to
+      # distinct test/prod accounts. See the `deploy` job's matrix comment.
       stages:
-        description: "Stage(s) to deploy ('all' = dev -> test -> prod)"
+        description: "Stage(s) to deploy ('all' = dev -> test -> prod, all in the dev AWS account)"
         required: true
         default: "all"
         type: choice
@@ -57,19 +62,24 @@ jobs:
           # workflow (portable across forks). Without this the script falls
           # back to its hardcoded default and events go to the wrong repo.
           GITHUB_REPO: ${{ github.repository }}
+          # Pass GitHub expressions through env (never inline ${{ }} into the
+          # run: body) so untrusted values can't be interpreted as shell.
+          ACCOUNT_ID: ${{ steps.aws-account.outputs.account-id }}
+          REGION: ${{ vars.DOMAIN_REGION }}
         run: |
           bash examples/end-to-end-data-ml-pipeline/scripts/setup-mlops-infra.sh \
             "dev" \
-            "${{ steps.aws-account.outputs.account-id }}" \
-            "${{ vars.DOMAIN_REGION }}" \
+            "$ACCOUNT_ID" \
+            "$REGION" \
             "bank-mktg-dev"
 
   # Deploy dev -> test -> prod sequentially (max-parallel: 1) via the shared
-  # reusable. Each matrix entry carries its own role secret + environment, so a
-  # stage can move to a distinct role/account later by editing just that entry.
-  # Today all three use AWS_ROLE_ARN_DEV + dev-aws-account (the dev role is a
-  # member of all three projects). The set of stages comes from the `stages`
-  # input ('all' -> dev,test,prod; a single stage -> just that one).
+  # reusable. All stages deploy into the single dev AWS account using
+  # AWS_ROLE_ARN_DEV + the dev-aws-account environment (the dev role is a member
+  # of all three projects), so the role and environment are set once at the job
+  # level below rather than per matrix entry. The matrix only selects which
+  # stages run: the `stages` input picks a single stage, and anything else
+  # (including a `push` event, where the input is empty) runs dev -> test -> prod.
   deploy:
     name: Deploy MLOps Pipeline (${{ matrix.stage }})
     needs: [setup-infra]
@@ -78,24 +88,26 @@ jobs:
       fail-fast: true
       max-parallel: 1
       matrix:
-        include: >-
+        stage: >-
           ${{ fromJSON(
-          inputs.stages == 'dev' && '[{"stage":"dev","role_secret":"AWS_ROLE_ARN_DEV","environment":"dev-aws-account"}]'
-          || inputs.stages == 'test' && '[{"stage":"test","role_secret":"AWS_ROLE_ARN_DEV","environment":"dev-aws-account"}]'
-          || inputs.stages == 'prod' && '[{"stage":"prod","role_secret":"AWS_ROLE_ARN_DEV","environment":"dev-aws-account"}]'
-          || '[{"stage":"dev","role_secret":"AWS_ROLE_ARN_DEV","environment":"dev-aws-account"},{"stage":"test","role_secret":"AWS_ROLE_ARN_DEV","environment":"dev-aws-account"},{"stage":"prod","role_secret":"AWS_ROLE_ARN_DEV","environment":"dev-aws-account"}]'
+          inputs.stages == 'dev' && '["dev"]'
+          || inputs.stages == 'test' && '["test"]'
+          || inputs.stages == 'prod' && '["prod"]'
+          || '["dev","test","prod"]'
           ) }}
     uses: ./.github/workflows/smus-direct-deploy.yml
     secrets:
-      AWS_ROLE_ARN: ${{ secrets[matrix.role_secret] }}
+      AWS_ROLE_ARN: ${{ secrets.AWS_ROLE_ARN_DEV }}
     with:
       manifest_path: 'examples/end-to-end-data-ml-pipeline/examples/mlops-pipeline/manifest.yaml'
       target: ${{ matrix.stage }}
-      environment_name: ${{ matrix.environment }}
+      environment_name: dev-aws-account
       skip_tests: true
-      # Resolves MLFLOW_TRACKING_SERVER_NAME to smus-integration-mlflow-<region>
-      # (matches the manifest default) so the tracking-server ARN is valid; the
-      # reusable only checks the server exists (CloudFormation only if missing).
+      # Reuse the shared dev MLflow tracking server already running in the
+      # account (smus-integration-mlflow-<region>, matching the manifest
+      # default) so the tracking-server ARN is valid. The reusable only verifies
+      # the server exists and provisions one via CloudFormation solely if it is
+      # missing - it does not recreate the existing server.
       setup_mlflow: true
 
   # Build + upload the training source bundle to the dev project's shared S3

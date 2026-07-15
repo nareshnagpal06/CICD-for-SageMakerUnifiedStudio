@@ -93,15 +93,6 @@ def cmd_select_package(args: argparse.Namespace) -> int:
 # =============================================================================
 
 
-def _resolve_domain_id(dz, domain_name: str) -> str:
-    paginator = dz.get_paginator("list_domains")
-    for page in paginator.paginate():
-        for domain in page.get("items", []):
-            if domain["name"] == domain_name:
-                return domain["id"]
-    raise ValueError(f"Domain '{domain_name}' not found")
-
-
 def _parse_domain_tags(raw: str) -> dict[str, str]:
     """Parse a comma-separated 'key=value' string into a tag dict."""
     tags: dict[str, str] = {}
@@ -118,58 +109,42 @@ def _parse_domain_tags(raw: str) -> dict[str, str]:
     return tags
 
 
-def _resolve_domain_id_by_tags(dz, tags: dict[str, str], region: str) -> str:
-    """Resolve a domain id by matching ALL provided tags.
+def _resolve_domain_id(
+    region: str,
+    domain_name: str | None = None,
+    domain_tags: dict[str, str] | None = None,
+) -> str:
+    """Resolve a domain id via the packaged SMUS CLI helper.
 
-    Mirrors the SMUS CLI's manifest-based domain resolution (region + tags),
-    so the promotion pipeline doesn't need a hardcoded domain name.
+    Reuses ``smus_cicd.helpers.datazone.resolve_domain_id`` — the same
+    name/tags/auto-detect resolution the CLI uses for manifest deploys — instead
+    of reimplementing domain lookup here. Raises loudly if no domain matches.
     """
-    paginator = dz.get_paginator("list_domains")
-    matches = []
-    for page in paginator.paginate():
-        for domain in page.get("items", []):
-            domain_arn = domain.get("arn")
-            if not domain_arn:
-                continue
-            domain_tags = dz.list_tags_for_resource(resourceArn=domain_arn).get("tags", {})
-            if all(domain_tags.get(k) == v for k, v in tags.items()):
-                matches.append(domain)
-    if not matches:
-        raise ValueError(f"No domain in region {region} matches tags {tags}")
-    if len(matches) > 1:
-        names = ", ".join(d.get("name", d["id"]) for d in matches)
-        raise ValueError(
-            f"Multiple domains match tags {tags}: {names}. "
-            "Narrow the tags or pass --domain-id."
-        )
-    return matches[0]["id"]
+    from smus_cicd.helpers import datazone as smus_datazone
 
-
-def _auto_detect_domain_id(dz, region: str) -> str:
-    """Return the only domain in the region, or fail if 0 or >1 exist."""
-    paginator = dz.get_paginator("list_domains")
-    domains = []
-    for page in paginator.paginate():
-        domains.extend(page.get("items", []))
-    if len(domains) == 1:
-        return domains[0]["id"]
-    if not domains:
-        raise ValueError(f"No domains found in region {region}")
-    raise ValueError(
-        f"Multiple domains found in region {region}. "
-        "Pass --domain-id, --domain-name, or --domain-tags."
+    domain_id, _ = smus_datazone.resolve_domain_id(
+        domain_name=domain_name, domain_tags=domain_tags, region=region
     )
+    if not domain_id:
+        raise ValueError(
+            f"No domain found in region {region} "
+            f"(name={domain_name!r}, tags={domain_tags!r})"
+        )
+    return domain_id
 
 
-def _resolve_project_bucket(dz, sts, domain_id: str, project_name: str, region: str) -> str:
-    paginator = dz.get_paginator("list_projects")
-    for page in paginator.paginate(domainIdentifier=domain_id):
-        for project in page.get("items", []):
-            if project["name"] == project_name:
-                project_id = project["id"]
-                account_id = sts.get_caller_identity()["Account"]
-                return f"amazon-sagemaker-{account_id}-{region}-{project_id}"
-    raise ValueError(f"Project '{project_name}' not found in domain {domain_id}")
+def _resolve_project_bucket(sts, domain_id: str, project_name: str, region: str) -> str:
+    """Resolve a project's shared S3 bucket name from its DataZone project id.
+
+    Reuses ``smus_cicd.helpers.datazone.get_project_id_by_name`` for the lookup.
+    """
+    from smus_cicd.helpers import datazone as smus_datazone
+
+    project_id = smus_datazone.get_project_id_by_name(project_name, domain_id, region)
+    if not project_id:
+        raise ValueError(f"Project '{project_name}' not found in domain {domain_id}")
+    account_id = sts.get_caller_identity()["Account"]
+    return f"amazon-sagemaker-{account_id}-{region}-{project_id}"
 
 
 def _get_source_url_and_version(sm, model_package_arn: str) -> tuple[str, int]:
@@ -229,7 +204,6 @@ def cmd_stage_artifact(args: argparse.Namespace) -> int:
     """Copy model.tar.gz from the source bucket to a target stage bucket."""
     sm = boto3.client("sagemaker", region_name=args.region)
     s3 = boto3.client("s3", region_name=args.region)
-    dz = boto3.client("datazone", region_name=args.region)
     sts = boto3.client("sts", region_name=args.region)
 
     logger.info("=" * 60)
@@ -240,11 +214,13 @@ def cmd_stage_artifact(args: argparse.Namespace) -> int:
     if args.domain_id:
         domain_id = args.domain_id
     elif args.domain_name:
-        domain_id = _resolve_domain_id(dz, args.domain_name)
+        domain_id = _resolve_domain_id(args.region, domain_name=args.domain_name)
     elif args.domain_tags:
-        domain_id = _resolve_domain_id_by_tags(dz, _parse_domain_tags(args.domain_tags), args.region)
+        domain_id = _resolve_domain_id(
+            args.region, domain_tags=_parse_domain_tags(args.domain_tags)
+        )
     else:
-        domain_id = _auto_detect_domain_id(dz, args.region)
+        domain_id = _resolve_domain_id(args.region)
     logger.info(f"  Domain       : {domain_id}")
     logger.info("=" * 60)
 
@@ -252,7 +228,7 @@ def cmd_stage_artifact(args: argparse.Namespace) -> int:
     logger.info(f"Source : {source_url}")
     logger.info(f"Version: {version}")
 
-    dest_bucket = _resolve_project_bucket(dz, sts, domain_id, args.target_project_name, args.region)
+    dest_bucket = _resolve_project_bucket(sts, domain_id, args.target_project_name, args.region)
     dest_key = f"{args.target_prefix.rstrip('/')}/v{version}/model.tar.gz"
     dest_url = f"s3://{dest_bucket}/{dest_key}"
     logger.info(f"Dest   : {dest_url}")

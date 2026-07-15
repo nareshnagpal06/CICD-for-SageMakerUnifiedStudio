@@ -105,7 +105,9 @@ jobs:
           aws-region: ${{ vars.DOMAIN_REGION || 'us-east-1' }}
 
       - name: Install dependencies
-        run: pip install boto3 pyyaml -q
+        # aws-smus-cicd-cli is needed so mlops_helper.py can reuse the packaged
+        # smus_cicd.helpers.datazone resolution (domain + project lookup).
+        run: pip install aws-smus-cicd-cli boto3 pyyaml -q
 
       - name: Pick model package
         id: pick
@@ -273,6 +275,8 @@ jobs:
       )
     runs-on: ubuntu-latest
     steps:
+      # Checkout so the approval-gate script (await_issue_approval.sh) is
+      # available on the runner for the step below.
       - uses: actions/checkout@v4
       # Only users with write/triage access (who can manage and close issues)
       # may approve. Read-only users and non-collaborators are rejected by the
@@ -417,6 +421,8 @@ jobs:
       )
     runs-on: ubuntu-latest
     steps:
+      # Checkout so the approval-gate script (await_issue_approval.sh) is
+      # available on the runner for the step below.
       - uses: actions/checkout@v4
       # Only users with write/triage access (who can manage and close issues)
       # may approve. Read-only users and non-collaborators are rejected by the

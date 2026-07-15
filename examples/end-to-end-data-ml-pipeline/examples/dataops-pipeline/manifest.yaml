@@ -40,10 +40,12 @@ stages:
     stage: DEV
     domain:
       tags:
-        purpose: ${DOMAIN_TAG_PURPOSE:smus-cicd-testing}
+        # No inline defaults: an unset variable fails the deploy loudly instead
+        # of silently falling back. The deploy workflow must provide these.
+        purpose: ${DOMAIN_TAG_PURPOSE}
       region: ${DEV_DOMAIN_REGION}
     project:
-      name: ${DEV_PROJECT_NAME:e2e-data-ml-ops-dev}
+      name: ${DEV_PROJECT_NAME}
     environment_variables:
       ATHENA_DB_NAME: bank_mktg_dev
     bootstrap:
