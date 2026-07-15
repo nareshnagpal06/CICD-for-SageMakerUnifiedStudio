@@ -55,6 +55,7 @@ stages:
       EXPERIMENT_NAME: bank-mktg-experiments
       ENDPOINT_NAME: bank-mktg-prediction-dev
       MLFLOW_TRACKING_SERVER_NAME: "${MLFLOW_TRACKING_SERVER_NAME:smus-integration-mlflow-us-east-1}"
+      MLFLOW_TRACKING_SERVER_ARN: "arn:aws:sagemaker:${DEV_DOMAIN_REGION}:${AWS_ACCOUNT_ID}:mlflow-tracking-server/${MLFLOW_TRACKING_SERVER_NAME:smus-integration-mlflow-us-east-1}"
       MODEL_PACKAGE_ARN: "${MODEL_PACKAGE_ARN:none}"
       MODEL_DATA_URL_OVERRIDE: "${MODEL_DATA_URL_OVERRIDE:none}"
       GIT_COMMIT: "${GIT_COMMIT:unset}"
@@ -94,6 +95,7 @@ stages:
       EXPERIMENT_NAME: bank-mktg-experiments
       ENDPOINT_NAME: bank-mktg-prediction-test
       MLFLOW_TRACKING_SERVER_NAME: "${MLFLOW_TRACKING_SERVER_NAME:smus-integration-mlflow-us-east-1}"
+      MLFLOW_TRACKING_SERVER_ARN: "arn:aws:sagemaker:${TEST_DOMAIN_REGION:us-east-1}:${AWS_ACCOUNT_ID}:mlflow-tracking-server/${MLFLOW_TRACKING_SERVER_NAME:smus-integration-mlflow-us-east-1}"
       MODEL_PACKAGE_ARN: "${MODEL_PACKAGE_ARN:none}"
       MODEL_DATA_URL_OVERRIDE: "${MODEL_DATA_URL_OVERRIDE:none}"
       GIT_COMMIT: "${GIT_COMMIT:unset}"
@@ -131,6 +133,7 @@ stages:
       EXPERIMENT_NAME: bank-mktg-experiments
       ENDPOINT_NAME: bank-mktg-prediction-prod
       MLFLOW_TRACKING_SERVER_NAME: "${MLFLOW_TRACKING_SERVER_NAME:smus-integration-mlflow-us-east-1}"
+      MLFLOW_TRACKING_SERVER_ARN: "arn:aws:sagemaker:${PROD_DOMAIN_REGION:us-east-1}:${AWS_ACCOUNT_ID}:mlflow-tracking-server/${MLFLOW_TRACKING_SERVER_NAME:smus-integration-mlflow-us-east-1}"
       MODEL_PACKAGE_ARN: "${MODEL_PACKAGE_ARN:none}"
       MODEL_DATA_URL_OVERRIDE: "${MODEL_DATA_URL_OVERRIDE:none}"
       GIT_COMMIT: "${GIT_COMMIT:unset}"
