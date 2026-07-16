@@ -22,8 +22,7 @@ Both pipelines follow the same declarative workflow: define resources in YAML, d
 7. [CI/CD](#cicd)
 8. [Infrastructure](#infrastructure)
 9. [CLI Commands](#cli-commands)
-10. [Documentation](#documentation)
-11. [Project Structure](#project-structure)
+10. [Project Structure](#project-structure)
 
 ## Architecture
 
@@ -156,7 +155,7 @@ flowchart TD
     style Execution fill:transparent,stroke:#7b1fa2,stroke-width:2px
 ```
 
-The SMUS CLI handles resource provisioning in dependency order, stage-specific configuration substitution, and the full deployment lifecycle. GitHub Actions automates this using OIDC authentication (no long-lived credentials) — every job runs in a single GitHub Environment (`dev-aws-account`) and assumes one OIDC role (`AWS_ROLE_ARN_DEV`) directly (single-hop). Stages are distinguished by the manifest target (project + region), not by separate roles.
+The SMUS CLI handles resource provisioning in dependency order, stage-specific configuration substitution, and the full deployment lifecycle. In CI, GitHub Actions drives these same commands — see [CI/CD](#cicd) for the OIDC and multi-stage setup.
 
 ## Pipelines
 
@@ -183,39 +182,29 @@ You also need:
 - A SageMaker Unified Studio domain and project with MWAA Serverless enabled
 - Environment variables set for every stage the manifest defines
 
-These environment variables are the same values configured as GitHub repo/environment variables for CI (the source of truth). Set them in your shell for local runs:
+These are the same values configured as GitHub variables/secrets for CI (the source of truth — see [GitHub configuration](#github-configuration-ci-source-of-truth)). For local runs, export them for each stage your manifest defines:
 
 ```bash
 pip install aws-smus-cicd-cli
 
-# Account ID is resolved automatically from your AWS credentials
-# (aws sts get-caller-identity), so you do NOT need to export AWS_ACCOUNT_ID.
-# The domain is resolved by region + the `purpose` tag on the manifest's
-# domain block (default: smus-cicd-testing), so a domain NAME is not needed.
-#
-# Only DEV_DOMAIN_REGION is strictly required (the manifest has no default
-# for it). Everything else below is OPTIONAL — the manifest supplies defaults
-# (project names -> e2e-data-ml-ops-{dev,test,prod}, regions -> us-east-1,
-# MLFLOW_TRACKING_SERVER_NAME -> smus-integration-mlflow-us-east-1). Set them
-# only to override the defaults.
+# Account ID (aws sts get-caller-identity) and the domain (resolved by region +
+# the manifest's `purpose` tag) are detected automatically — do not export them.
+# Only DEV_DOMAIN_REGION is strictly required; the rest have manifest defaults.
 
-# DataOps example (dev stage only):
-export DEV_DOMAIN_REGION=<your-region>          # required
-export DEV_PROJECT_NAME=<your-dev-project>      # optional (default: e2e-data-ml-ops-dev)
+# DataOps (dev stage only):
+export DEV_DOMAIN_REGION=<your-region>               # required
+export DEV_PROJECT_NAME=<your-dev-project>           # optional (default: e2e-data-ml-ops-dev)
+export DOMAIN_TAG_PURPOSE=<your-domain-purpose-tag>  # optional (default: smus-cicd-testing)
 
-# MLOps example also validates test/prod, so additionally set (all optional):
-export TEST_DOMAIN_REGION=<your-region>         # optional (default: us-east-1)
-export TEST_PROJECT_NAME=<your-test-project>    # optional (default: e2e-data-ml-ops-test)
-export PROD_DOMAIN_REGION=<your-region>         # optional (default: us-east-1)
-export PROD_PROJECT_NAME=<your-prod-project>    # optional (default: e2e-data-ml-ops-prod)
-export MLFLOW_TRACKING_SERVER_NAME=<your-mlflow-server-name>  # optional (has default)
-
-# Optional: override the domain tag used for resolution (defaults to
-# smus-cicd-testing for every stage in these examples).
-# export DOMAIN_TAG_PURPOSE=<your-domain-purpose-tag>
+# MLOps also deploys test/prod, so additionally export (all optional, have defaults):
+export TEST_DOMAIN_REGION=<your-region>
+export TEST_PROJECT_NAME=<your-test-project>
+export PROD_DOMAIN_REGION=<your-region>
+export PROD_PROJECT_NAME=<your-prod-project>
+export MLFLOW_TRACKING_SERVER_NAME=<your-mlflow-server-name>
 ```
 
-Each pipeline has its own README with detailed walkthroughs: [`examples/dataops-pipeline/README.md`](examples/dataops-pipeline/README.md) and [`examples/mlops-pipeline/README.md`](examples/mlops-pipeline/README.md).
+Per-pipeline walkthroughs live in each sub-README (linked under [Pipelines](#pipelines)).
 
 ## Quick Start
 
@@ -237,13 +226,12 @@ End-to-end path from an empty repo to an automated dev → test → prod promoti
 
 ### 1. Install prerequisites and set environment variables
 
+Install the CLI and export the stage variables listed in [Prerequisites](#prerequisites):
+
 ```bash
 pip install aws-smus-cicd-cli
 aws sts get-caller-identity        # confirm your AWS credentials/account
-export DEV_DOMAIN_REGION=<your-region>   # only strictly required var (see Prerequisites)
 ```
-
-All other stage variables are optional and default to the manifest values (see [Prerequisites](#prerequisites)).
 
 ### 2. Configure GitHub for CI/CD
 
@@ -316,7 +304,7 @@ Each deploy job validates the target, runs the DAG, verifies the SageMaker proce
 
 ## CI/CD
 
-GitHub Actions workflows (at the repository root) automate multi-account deployment for this example:
+These GitHub Actions workflows (at the repository root) are this example's own end-to-end CI/CD — they exist to exercise the pipelines and demonstrate the deploy/promote pattern in practice, not as workflows customers author or edit. They run the single-account deploy for this example:
 
 | Workflow | File | Purpose |
 | -------- | ---- | ------- |
@@ -330,9 +318,9 @@ The promote workflow's stage gates (`approve-test`, `approve-prod`) use the [`tr
 
 ### GitHub configuration (CI source of truth)
 
-The workflows read their configuration from GitHub Actions **variables** and **secrets** — there is no config file checked into the repo. In these examples all jobs run in a single GitHub Environment named `dev-aws-account`, so the OIDC role secret (`AWS_ROLE_ARN_DEV`) and the `DOMAIN_REGION` variable live there.
+The workflows read their configuration from GitHub Actions **variables** and **secrets** — there is no config file checked into the repo. The OIDC role secret (`AWS_ROLE_ARN_DEV`) and `DOMAIN_REGION` live in the `dev-aws-account` environment.
 
-Some values that used to be configured are now derived at runtime and no longer need to be set:
+Some values are derived at runtime and do not need to be set:
 
 - **`AWS_ACCOUNT_ID`** — resolved via `aws sts get-caller-identity`.
 - **Domain** — resolved by region + the `purpose` tag on the manifest's domain block (default `smus-cicd-testing`), so no domain *name* variable is needed.
@@ -408,13 +396,6 @@ The `aws-smus-cicd-cli` provides the following commands for managing the pipelin
 | `test` | Run tests for pipeline targets |
 | `integrate` | Integrate with external tools (e.g. Q CLI MCP server) |
 | `destroy` | Delete all resources deployed by the manifest |
-
-## Documentation
-
-| Document | Description |
-| -------- | ----------- |
-| [DataOps pipeline README](examples/dataops-pipeline/README.md) | Glue ETL + Athena catalog walkthrough |
-| [MLOps pipeline README](examples/mlops-pipeline/README.md) | Training, evaluation, model registry, and event-driven deploy |
 
 ## Project Structure
 
