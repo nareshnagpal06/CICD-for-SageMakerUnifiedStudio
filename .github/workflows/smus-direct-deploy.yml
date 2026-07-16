@@ -101,6 +101,14 @@ jobs:
                 TrackingServerSize="Small" \
               --capabilities CAPABILITY_NAMED_IAM \
               --region "$REGION"
+
+            # Get the tracking server ARN from stack outputs
+            MLFLOW_ARN=$(aws cloudformation describe-stacks \
+              --stack-name "$STACK_NAME" \
+              --region "$REGION" \
+              --query 'Stacks[0].Outputs[?OutputKey==`MLflowTrackingServerArn`].OutputValue' \
+              --output text)
+            echo "MLflow tracking server '$TRACKING_SERVER_NAME' deployed (ARN: $MLFLOW_ARN)"
           fi
 
       - name: Deploy
@@ -151,7 +159,7 @@ jobs:
                           'python3', 'tests/scripts/download_workflow_outputs_from_xcom.py',
                           full_name, '--region', region,
                           '--output-dir', 'tests/test-outputs/notebooks'
-                      ])
+                      ], capture_output=True, text=True)
           except Exception as e:
               print(f"Error downloading notebooks: {e}")
           EOF

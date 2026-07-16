@@ -105,7 +105,9 @@ jobs:
           aws-region: ${{ vars.DOMAIN_REGION || 'us-east-1' }}
 
       - name: Install dependencies
-        run: pip install boto3 pyyaml -q
+        # aws-smus-cicd-cli is needed so mlops_helper.py can reuse the packaged
+        # smus_cicd.helpers.datazone resolution (domain + project lookup).
+        run: pip install aws-smus-cicd-cli boto3 pyyaml -q
 
       - name: Pick model package
         id: pick
