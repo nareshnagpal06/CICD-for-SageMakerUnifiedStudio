@@ -4,8 +4,8 @@ name: E2E MLOps Promotion (dev -> test -> prod)
 # the deploy_pipeline workflow in each stage's project with manual approval
 # gates before test and prod. Approval is via a GitHub issue; any user with
 # write/triage access to the repo (who can manage/close issues) may approve.
-# All jobs run in the dev-aws-account environment and assume AWS_ROLE_ARN_DEV
-# (single-account).
+# Per-stage environments come from the resolve-config job (today all point at
+# dev-aws-account) and every job assumes AWS_ROLE_ARN_DEV (single-account).
 
 on:
   workflow_dispatch:
@@ -59,7 +59,7 @@ env:
 jobs:
   # Exposes per-stage environment names as job outputs, since the job-level
   # `environment:` key can't read the workflow `env` context directly.
-  config:
+  resolve-config:
     runs-on: ubuntu-latest
     outputs:
       dev_environment: ${{ steps.vars.outputs.dev_environment }}
@@ -75,9 +75,9 @@ jobs:
   # Pick the model package ARN once and stage its artifact into test/prod.
   prepare:
     name: Select & stage model
-    needs: [config]
+    needs: [resolve-config]
     runs-on: ubuntu-latest
-    environment: ${{ needs.config.outputs.dev_environment }}
+    environment: ${{ needs.resolve-config.outputs.dev_environment }}
     outputs:
       model_package_arn: ${{ steps.pick.outputs.arn }}
       model_package_version: ${{ steps.pick.outputs.version }}
@@ -125,10 +125,10 @@ jobs:
           role-to-assume: ${{ secrets.AWS_ROLE_ARN_DEV }}
           aws-region: ${{ vars.DOMAIN_REGION || 'us-east-1' }}
 
-      - name: Install dependencies
+      - name: Install CLI
         # aws-smus-cicd-cli is needed so mlops_helper.py can reuse the packaged
         # smus_cicd.helpers.datazone resolution (domain + project lookup).
-        run: pip install aws-smus-cicd-cli boto3 pyyaml -q
+        run: pip install aws-smus-cicd-cli pyyaml boto3 -q
 
       - name: Pick model package
         id: pick
@@ -181,10 +181,10 @@ jobs:
 
   deploy-dev:
     name: Deploy to DEV
-    needs: [config, prepare]
+    needs: [resolve-config, prepare]
     if: ${{ needs.prepare.outputs.start_at == 'dev' && needs.prepare.result == 'success' }}
     runs-on: ubuntu-latest
-    environment: ${{ needs.config.outputs.dev_environment }}
+    environment: ${{ needs.resolve-config.outputs.dev_environment }}
     env:
       STAGE: dev
       ENDPOINT_NAME: bank-mktg-prediction-dev
@@ -304,7 +304,7 @@ jobs:
 
   deploy-test:
     name: Deploy to TEST
-    needs: [config, prepare, deploy-dev, approve-test]
+    needs: [resolve-config, prepare, deploy-dev, approve-test]
     if: |
       always() &&
       needs.prepare.result == 'success' &&
@@ -314,7 +314,7 @@ jobs:
         needs.prepare.outputs.start_at == 'test'
       )
     runs-on: ubuntu-latest
-    environment: ${{ needs.config.outputs.test_environment }}
+    environment: ${{ needs.resolve-config.outputs.test_environment }}
     env:
       STAGE: test
       ENDPOINT_NAME: bank-mktg-prediction-test
@@ -440,7 +440,7 @@ jobs:
 
   deploy-prod:
     name: Deploy to PROD
-    needs: [config, prepare, deploy-test, approve-prod]
+    needs: [resolve-config, prepare, deploy-test, approve-prod]
     if: |
       always() &&
       needs.prepare.result == 'success' &&
@@ -450,7 +450,7 @@ jobs:
         needs.prepare.outputs.start_at == 'prod'
       )
     runs-on: ubuntu-latest
-    environment: ${{ needs.config.outputs.prod_environment }}
+    environment: ${{ needs.resolve-config.outputs.prod_environment }}
     env:
       STAGE: prod
       ENDPOINT_NAME: bank-mktg-prediction-prod

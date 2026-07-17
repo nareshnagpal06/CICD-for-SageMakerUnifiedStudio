@@ -23,7 +23,7 @@ env:
 jobs:
   # Exposes the env value as a job output, since `with:` can't read the workflow
   # `env` context directly (it can read needs).
-  config:
+  resolve-config:
     runs-on: ubuntu-latest
     outputs:
       dev_environment: ${{ steps.vars.outputs.dev_environment }}
@@ -35,12 +35,12 @@ jobs:
     # Uses the shared reusable. The dev OIDC role (AWS_ROLE_ARN_DEV) is mapped
     # into the reusable's generic AWS_ROLE_ARN secret; region comes from the
     # environment's DOMAIN_REGION.
-    needs: [config]
+    needs: [resolve-config]
     uses: ./.github/workflows/smus-direct-deploy.yml
     secrets:
       AWS_ROLE_ARN: ${{ secrets.AWS_ROLE_ARN_DEV }}
     with:
       manifest_path: 'examples/end-to-end-data-ml-pipeline/examples/dataops-pipeline/manifest.yaml'
       target: 'dev'
-      environment_name: ${{ needs.config.outputs.dev_environment }}
+      environment_name: ${{ needs.resolve-config.outputs.dev_environment }}
       skip_tests: true

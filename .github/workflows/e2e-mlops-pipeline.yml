@@ -29,7 +29,7 @@ permissions:
   contents: read
 
 # Single source of truth for per-stage config. Change a value here and every
-# job picks it up via needs.config.outputs.*.
+# job picks it up via needs.resolve-config.outputs.*.
 env:
   DEV_ENVIRONMENT: dev-aws-account
   TEST_ENVIRONMENT: dev-aws-account
@@ -42,7 +42,7 @@ env:
 jobs:
   # Exposes the env values as job outputs, since the job-level `environment:` key
   # can't read the workflow `env` context directly.
-  config:
+  resolve-config:
     runs-on: ubuntu-latest
     outputs:
       dev_environment: ${{ steps.vars.outputs.dev_environment }}
@@ -64,10 +64,10 @@ jobs:
   # Provision the deploy trigger (EventBridge + Lambda) once, in dev.
   setup-infra:
     name: Setup ML Training Pipeline Infrastructure (dev)
-    needs: [config]
+    needs: [resolve-config]
     if: ${{ (github.event_name != 'workflow_dispatch' || inputs.setup_infra) && (inputs.stages == '' || inputs.stages == 'all' || inputs.stages == 'dev') }}
     runs-on: ubuntu-latest
-    environment: ${{ needs.config.outputs.dev_environment }}
+    environment: ${{ needs.resolve-config.outputs.dev_environment }}
     steps:
       - uses: actions/checkout@v4
 
@@ -91,7 +91,7 @@ jobs:
           # Pass expressions via env, never inline ${{ }} in run:, to avoid shell injection.
           ACCOUNT_ID: ${{ steps.aws-account.outputs.account-id }}
           REGION: ${{ vars.DOMAIN_REGION }}
-          PROJECT_NAME: ${{ needs.config.outputs.dev_project_name }}
+          PROJECT_NAME: ${{ needs.resolve-config.outputs.dev_project_name }}
         run: |
           bash examples/end-to-end-data-ml-pipeline/scripts/setup-mlops-infra.sh \
             "dev" \
@@ -104,7 +104,7 @@ jobs:
   # a distinct role/account by editing just the env block.
   deploy:
     name: Deploy MLOps Pipeline (${{ matrix.stage }})
-    needs: [config, setup-infra]
+    needs: [resolve-config, setup-infra]
     if: ${{ always() && needs.setup-infra.result != 'failure' && needs.setup-infra.result != 'cancelled' }}
     strategy:
       fail-fast: true
@@ -112,10 +112,10 @@ jobs:
       matrix:
         include: >-
           ${{ fromJSON(
-          inputs.stages == 'dev' && format('[{{"stage":"dev","role_secret":"AWS_ROLE_ARN_DEV","environment":"{0}"}}]', needs.config.outputs.dev_environment)
-          || inputs.stages == 'test' && format('[{{"stage":"test","role_secret":"AWS_ROLE_ARN_DEV","environment":"{0}"}}]', needs.config.outputs.test_environment)
-          || inputs.stages == 'prod' && format('[{{"stage":"prod","role_secret":"AWS_ROLE_ARN_DEV","environment":"{0}"}}]', needs.config.outputs.prod_environment)
-          || format('[{{"stage":"dev","role_secret":"AWS_ROLE_ARN_DEV","environment":"{0}"}},{{"stage":"test","role_secret":"AWS_ROLE_ARN_DEV","environment":"{1}"}},{{"stage":"prod","role_secret":"AWS_ROLE_ARN_DEV","environment":"{2}"}}]', needs.config.outputs.dev_environment, needs.config.outputs.test_environment, needs.config.outputs.prod_environment)
+          inputs.stages == 'dev' && format('[{{"stage":"dev","role_secret":"AWS_ROLE_ARN_DEV","environment":"{0}"}}]', needs.resolve-config.outputs.dev_environment)
+          || inputs.stages == 'test' && format('[{{"stage":"test","role_secret":"AWS_ROLE_ARN_DEV","environment":"{0}"}}]', needs.resolve-config.outputs.test_environment)
+          || inputs.stages == 'prod' && format('[{{"stage":"prod","role_secret":"AWS_ROLE_ARN_DEV","environment":"{0}"}}]', needs.resolve-config.outputs.prod_environment)
+          || format('[{{"stage":"dev","role_secret":"AWS_ROLE_ARN_DEV","environment":"{0}"}},{{"stage":"test","role_secret":"AWS_ROLE_ARN_DEV","environment":"{1}"}},{{"stage":"prod","role_secret":"AWS_ROLE_ARN_DEV","environment":"{2}"}}]', needs.resolve-config.outputs.dev_environment, needs.resolve-config.outputs.test_environment, needs.resolve-config.outputs.prod_environment)
           ) }}
     uses: ./.github/workflows/smus-direct-deploy.yml
     secrets:
@@ -132,10 +132,10 @@ jobs:
   # src/ sync cannot clobber it.
   upload-sourcedir:
     name: Upload Artifacts
-    needs: [config, deploy]
+    needs: [resolve-config, deploy]
     if: ${{ always() && needs.deploy.result == 'success' && (inputs.stages == '' || inputs.stages == 'all' || inputs.stages == 'dev') }}
     runs-on: ubuntu-latest
-    environment: ${{ needs.config.outputs.dev_environment }}
+    environment: ${{ needs.resolve-config.outputs.dev_environment }}
     steps:
       - uses: actions/checkout@v4
 
