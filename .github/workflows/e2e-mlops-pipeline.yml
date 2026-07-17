@@ -38,6 +38,11 @@ env:
   SMUS_DEV_PROJECT_NAME: e2e-data-ml-ops-dev
   SMUS_TEST_PROJECT_NAME: e2e-data-ml-ops-test
   SMUS_PROD_PROJECT_NAME: e2e-data-ml-ops-prod
+  # OIDC role secret name per stage (single account today -> all AWS_ROLE_ARN_DEV).
+  # Point a stage at its own account by changing just its secret name here.
+  DEV_ROLE_SECRET: AWS_ROLE_ARN_DEV
+  TEST_ROLE_SECRET: AWS_ROLE_ARN_DEV
+  PROD_ROLE_SECRET: AWS_ROLE_ARN_DEV
 
 jobs:
   # Exposes the env values as job outputs, since the job-level `environment:` key
@@ -51,6 +56,9 @@ jobs:
       dev_project_name: ${{ steps.vars.outputs.dev_project_name }}
       test_project_name: ${{ steps.vars.outputs.test_project_name }}
       prod_project_name: ${{ steps.vars.outputs.prod_project_name }}
+      dev_role_secret: ${{ steps.vars.outputs.dev_role_secret }}
+      test_role_secret: ${{ steps.vars.outputs.test_role_secret }}
+      prod_role_secret: ${{ steps.vars.outputs.prod_role_secret }}
     steps:
       - id: vars
         run: |
@@ -60,6 +68,9 @@ jobs:
           echo "dev_project_name=$SMUS_DEV_PROJECT_NAME" >> "$GITHUB_OUTPUT"
           echo "test_project_name=$SMUS_TEST_PROJECT_NAME" >> "$GITHUB_OUTPUT"
           echo "prod_project_name=$SMUS_PROD_PROJECT_NAME" >> "$GITHUB_OUTPUT"
+          echo "dev_role_secret=$DEV_ROLE_SECRET" >> "$GITHUB_OUTPUT"
+          echo "test_role_secret=$TEST_ROLE_SECRET" >> "$GITHUB_OUTPUT"
+          echo "prod_role_secret=$PROD_ROLE_SECRET" >> "$GITHUB_OUTPUT"
 
   # Provision the deploy trigger (EventBridge + Lambda) once, in dev.
   setup-infra:
@@ -112,10 +123,10 @@ jobs:
       matrix:
         include: >-
           ${{ fromJSON(
-          inputs.stages == 'dev' && format('[{{"stage":"dev","role_secret":"AWS_ROLE_ARN_DEV","environment":"{0}"}}]', needs.resolve-config.outputs.dev_environment)
-          || inputs.stages == 'test' && format('[{{"stage":"test","role_secret":"AWS_ROLE_ARN_DEV","environment":"{0}"}}]', needs.resolve-config.outputs.test_environment)
-          || inputs.stages == 'prod' && format('[{{"stage":"prod","role_secret":"AWS_ROLE_ARN_DEV","environment":"{0}"}}]', needs.resolve-config.outputs.prod_environment)
-          || format('[{{"stage":"dev","role_secret":"AWS_ROLE_ARN_DEV","environment":"{0}"}},{{"stage":"test","role_secret":"AWS_ROLE_ARN_DEV","environment":"{1}"}},{{"stage":"prod","role_secret":"AWS_ROLE_ARN_DEV","environment":"{2}"}}]', needs.resolve-config.outputs.dev_environment, needs.resolve-config.outputs.test_environment, needs.resolve-config.outputs.prod_environment)
+          inputs.stages == 'dev' && format('[{{"stage":"dev","role_secret":"{0}","environment":"{1}"}}]', needs.resolve-config.outputs.dev_role_secret, needs.resolve-config.outputs.dev_environment)
+          || inputs.stages == 'test' && format('[{{"stage":"test","role_secret":"{0}","environment":"{1}"}}]', needs.resolve-config.outputs.test_role_secret, needs.resolve-config.outputs.test_environment)
+          || inputs.stages == 'prod' && format('[{{"stage":"prod","role_secret":"{0}","environment":"{1}"}}]', needs.resolve-config.outputs.prod_role_secret, needs.resolve-config.outputs.prod_environment)
+          || format('[{{"stage":"dev","role_secret":"{0}","environment":"{1}"}},{{"stage":"test","role_secret":"{2}","environment":"{3}"}},{{"stage":"prod","role_secret":"{4}","environment":"{5}"}}]', needs.resolve-config.outputs.dev_role_secret, needs.resolve-config.outputs.dev_environment, needs.resolve-config.outputs.test_role_secret, needs.resolve-config.outputs.test_environment, needs.resolve-config.outputs.prod_role_secret, needs.resolve-config.outputs.prod_environment)
           ) }}
     uses: ./.github/workflows/smus-direct-deploy.yml
     secrets:
