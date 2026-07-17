@@ -88,13 +88,13 @@ jobs:
       start_at: ${{ steps.params.outputs.start_at }}
       run_smoke_test: ${{ steps.params.outputs.run_smoke_test }}
     steps:
-      - uses: actions/checkout@v6
+      - uses: actions/checkout@v4
         with:
           ref: main
 
-      - uses: actions/setup-python@v6
+      - uses: actions/setup-python@v5
         with:
-          python-version: "3.11"
+          python-version: "3.12"
 
       - name: Resolve trigger params
         id: params
@@ -122,10 +122,10 @@ jobs:
           } >> "$GITHUB_OUTPUT"
 
       - name: Authenticate via OIDC
-        uses: aws-actions/configure-aws-credentials@v6
+        uses: aws-actions/configure-aws-credentials@v4
         with:
           role-to-assume: ${{ secrets.AWS_ROLE_ARN_DEV }}
-          aws-region: ${{ vars.DOMAIN_REGION || 'us-east-1' }}
+          aws-region: ${{ env.REGION }}
 
       - name: Install CLI
         # aws-smus-cicd-cli is needed so mlops_helper.py can reuse the packaged
@@ -199,19 +199,19 @@ jobs:
       STAGE: dev
       ENDPOINT_NAME: bank-mktg-prediction-dev
     steps:
-      - uses: actions/checkout@v6
+      - uses: actions/checkout@v4
         with:
           ref: main
 
-      - uses: actions/setup-python@v6
+      - uses: actions/setup-python@v5
         with:
-          python-version: "3.11"
+          python-version: "3.12"
 
       - name: Authenticate via OIDC
-        uses: aws-actions/configure-aws-credentials@v6
+        uses: aws-actions/configure-aws-credentials@v4
         with:
           role-to-assume: ${{ secrets.AWS_ROLE_ARN_DEV }}
-          aws-region: ${{ vars.DOMAIN_REGION || 'us-east-1' }}
+          aws-region: ${{ env.REGION }}
 
       - name: Install CLI
         run: pip install aws-smus-cicd-cli pyyaml boto3 -q
@@ -329,19 +329,19 @@ jobs:
       STAGE: test
       ENDPOINT_NAME: bank-mktg-prediction-test
     steps:
-      - uses: actions/checkout@v6
+      - uses: actions/checkout@v4
         with:
           ref: main
 
-      - uses: actions/setup-python@v6
+      - uses: actions/setup-python@v5
         with:
-          python-version: "3.11"
+          python-version: "3.12"
 
       - name: Authenticate via OIDC
-        uses: aws-actions/configure-aws-credentials@v6
+        uses: aws-actions/configure-aws-credentials@v4
         with:
           role-to-assume: ${{ secrets.AWS_ROLE_ARN_DEV }}
-          aws-region: ${{ vars.DOMAIN_REGION || 'us-east-1' }}
+          aws-region: ${{ env.REGION }}
 
       - name: Install CLI
         run: pip install aws-smus-cicd-cli pyyaml boto3 -q
@@ -465,19 +465,19 @@ jobs:
       STAGE: prod
       ENDPOINT_NAME: bank-mktg-prediction-prod
     steps:
-      - uses: actions/checkout@v6
+      - uses: actions/checkout@v4
         with:
           ref: main
 
-      - uses: actions/setup-python@v6
+      - uses: actions/setup-python@v5
         with:
-          python-version: "3.11"
+          python-version: "3.12"
 
       - name: Authenticate via OIDC
-        uses: aws-actions/configure-aws-credentials@v6
+        uses: aws-actions/configure-aws-credentials@v4
         with:
           role-to-assume: ${{ secrets.AWS_ROLE_ARN_DEV }}
-          aws-region: ${{ vars.DOMAIN_REGION || 'us-east-1' }}
+          aws-region: ${{ env.REGION }}
 
       - name: Install CLI
         run: pip install aws-smus-cicd-cli pyyaml boto3 -q
