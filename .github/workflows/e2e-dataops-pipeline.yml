@@ -16,16 +16,31 @@ permissions:
   id-token: write
   contents: read
 
+# Single source of truth for the deploy environment name.
+env:
+  DEV_ENVIRONMENT: dev-aws-account
+
 jobs:
+  # Exposes the env value as a job output, since `with:` can't read the workflow
+  # `env` context directly (it can read needs).
+  resolve-config:
+    runs-on: ubuntu-latest
+    outputs:
+      dev_environment: ${{ steps.vars.outputs.dev_environment }}
+    steps:
+      - id: vars
+        run: echo "dev_environment=$DEV_ENVIRONMENT" >> "$GITHUB_OUTPUT"
+
   deploy:
-    # Uses the shared reusable, running in the dev-aws-account environment. The
-    # dev OIDC role (AWS_ROLE_ARN_DEV) is mapped into the reusable's generic
-    # AWS_ROLE_ARN secret; the region comes from the environment's DOMAIN_REGION.
+    # Uses the shared reusable. The dev OIDC role (AWS_ROLE_ARN_DEV) is mapped
+    # into the reusable's generic AWS_ROLE_ARN secret; region comes from the
+    # environment's DOMAIN_REGION.
+    needs: [resolve-config]
     uses: ./.github/workflows/smus-direct-deploy.yml
     secrets:
       AWS_ROLE_ARN: ${{ secrets.AWS_ROLE_ARN_DEV }}
     with:
       manifest_path: 'examples/end-to-end-data-ml-pipeline/examples/dataops-pipeline/manifest.yaml'
       target: 'dev'
-      environment_name: 'dev-aws-account'
+      environment_name: ${{ needs.resolve-config.outputs.dev_environment }}
       skip_tests: true

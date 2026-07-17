@@ -182,15 +182,9 @@ You also need:
 - A SageMaker Unified Studio domain and project with MWAA Serverless enabled
 - Environment variables set for every stage the manifest defines
 
-These are the same values configured as GitHub variables/secrets for CI (the source of truth — see [GitHub configuration](#github-configuration-ci-source-of-truth)). For local runs, export them for each stage your manifest defines:
+These are the same values configured as GitHub variables/secrets for CI (the source of truth — see [GitHub configuration](#github-configuration-ci-source-of-truth)). For local runs, export them for each stage your manifest defines. Account ID and domain are auto-resolved — do not export them; only `DEV_DOMAIN_REGION` is strictly required, and the rest have manifest defaults.
 
 ```bash
-pip install aws-smus-cicd-cli
-
-# Account ID (aws sts get-caller-identity) and the domain (resolved by region +
-# the manifest's `purpose` tag) are detected automatically — do not export them.
-# Only DEV_DOMAIN_REGION is strictly required; the rest have manifest defaults.
-
 # DataOps (dev stage only):
 export DEV_DOMAIN_REGION=<your-region>               # required
 export DEV_PROJECT_NAME=<your-dev-project>           # optional (default: e2e-data-ml-ops-dev)
@@ -240,7 +234,7 @@ All jobs run in a single GitHub Environment named `dev-aws-account`, which holds
 ```bash
 REPO=<owner>/<repo>
 
-# Single OIDC role secret (assumed directly by every job — single-hop, single-account)
+# Single OIDC role secret, assumed directly by every job
 gh secret set AWS_ROLE_ARN_DEV --repo "$REPO" --env dev-aws-account --body "arn:aws:iam::<acct>:role/<dev-oidc-role>"
 
 # Region (feeds every stage's *_DOMAIN_REGION); everything else has manifest defaults
@@ -250,7 +244,7 @@ gh variable set DOMAIN_REGION --repo "$REPO" --env dev-aws-account --body "us-ea
 gh variable set MLOPS_APPROVERS --repo "$REPO" --body "user1,user2"
 ```
 
-`AWS_ACCOUNT_ID` and the domain are resolved at runtime, so they don't need to be set. See [GitHub configuration](#github-configuration-ci-source-of-truth) for the full list.
+See [GitHub configuration](#github-configuration-ci-source-of-truth) for the full list of variables and secrets.
 
 ### 3. Enable Issues (required for the promote approval gates)
 
@@ -314,7 +308,7 @@ These GitHub Actions workflows (at the repository root) are this example's own e
 
 CI/CD uses OIDC authentication (no long-lived credentials). Every job runs in the single `dev-aws-account` environment and assumes one OIDC role (`AWS_ROLE_ARN_DEV`) directly — single-hop, single-account, no separate deployment role. The DataOps and MLOps deploy jobs call the shared [`smus-direct-deploy.yml`](../../.github/workflows/smus-direct-deploy.yml) reusable, mapping `AWS_ROLE_ARN_DEV` into its generic `AWS_ROLE_ARN` secret and passing `environment_name: dev-aws-account`; stages differ only by the manifest target (project + region). The MLOps training workflow provisions the EventBridge + Lambda deploy trigger in dev only — model approval happens in dev's registry and drives the promote cascade across stages.
 
-The promote workflow's stage gates (`approve-test`, `approve-prod`) use the [`trstringer/manual-approval`](https://github.com/trstringer/manual-approval) action, which opens a tracking **issue** and waits for a listed approver to comment `approved` (or `approve`/`lgtm`/`yes`). This requires **Issues enabled** on the repository and the workflow's `issues: write` permission. Approvers come from the `MLOPS_APPROVERS` variable (comma/newline-separated usernames); if unset it falls back to a single default approver.
+The promote workflow's stage gates (`approve-test`, `approve-prod`) use the [`trstringer/manual-approval`](https://github.com/trstringer/manual-approval) action, which opens a tracking **issue** and waits for a listed approver to comment `approved` (or `approve`/`lgtm`/`yes`). This requires **Issues enabled** on the repository (see [step 3](#3-enable-issues-required-for-the-promote-approval-gates)) and the workflow's `issues: write` permission. Approvers come from the `MLOPS_APPROVERS` variable.
 
 ### GitHub configuration (CI source of truth)
 
