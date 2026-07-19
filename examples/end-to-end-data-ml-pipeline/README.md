@@ -444,7 +444,6 @@ This example drives the `aws-smus-cicd-cli` (`describe`, `deploy`, `run`, `monit
 └── scripts/                           # Setup and helper scripts
     ├── setup-mlops-infra.sh           # EventBridge + Lambda deploy trigger
     ├── setup-github-oidc.sh           # GitHub OIDC provider + IAM role
-    ├── build-mlops-sourcedir.sh       # Build training sourcedir.tar.gz
     ├── mlops_helper.py                # Deploy status / smoke-test helpers
     └── test-deploy-trigger-event.json # Sample EventBridge event for testing
 ```

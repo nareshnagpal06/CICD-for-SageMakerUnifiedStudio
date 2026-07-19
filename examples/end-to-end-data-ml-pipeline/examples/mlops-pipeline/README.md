@@ -46,9 +46,6 @@ An MLflow tracking server must exist (the manifest bootstrap creates the MLflow 
 ## Deploy and Run
 
 ```bash
-# Build the training source bundle (train_xgboost.py + requirements.txt)
-../../scripts/build-mlops-sourcedir.sh
-
 # Validate connectivity
 aws-smus-cicd-cli describe --manifest manifest.yaml --targets dev --connect
 
@@ -62,7 +59,7 @@ aws-smus-cicd-cli run --manifest manifest.yaml --targets dev --workflow training
 aws-smus-cicd-cli monitor --manifest manifest.yaml --targets dev --live
 ```
 
-> The training job downloads `sourcedir.tar.gz` from the project's shared S3 location. In CI the [`e2e-mlops-pipeline.yml`](../../../../.github/workflows/e2e-mlops-pipeline.yml) workflow builds and uploads it automatically after deploy.
+> The `train_model` task downloads `train_model_sourcedir.tar.gz` from the project's shared S3 location. The CLI packages this automatically during `deploy` from the manifest's `train_model_sourcedir` storage item (`compression: tar.gz`, bundling `train_xgboost.py` + `requirements.txt`) — no separate build step is needed. Each script-mode SageMaker job gets its own per-job bundle named after the task that consumes it.
 
 ## Project Structure
 

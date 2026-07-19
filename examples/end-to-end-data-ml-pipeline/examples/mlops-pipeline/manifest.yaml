@@ -27,6 +27,17 @@ content:
         - __pycache__/
         - "*.pyc"
 
+    # Script-mode source bundle for the training_pipeline `train_model` task
+    # (SageMakerTrainingOperator). Packaged into train_model_sourcedir.tar.gz at
+    # deploy time (see deployment_configuration.storage below) and referenced by
+    # that task's sagemaker_submit_directory. Named per-job and scoped to just
+    # its entry script + requirements, so each script-mode job gets its own
+    # bundle rather than a shared "sourcedir".
+    - name: train_model_sourcedir
+      include:
+        - "src/train_xgboost.py"
+        - "src/requirements.txt"
+
     - name: workflows
       include:
         - "workflows/"
@@ -80,6 +91,10 @@ stages:
         - name: workflows
           connectionName: default.s3_shared
           targetDirectory: bank-mktg/mlops_pipeline/workflows
+        - name: train_model_sourcedir
+          connectionName: default.s3_shared
+          targetDirectory: bank-mktg/mlops_pipeline/src
+          compression: tar.gz
 
   test:
     stage: TEST
@@ -117,6 +132,10 @@ stages:
         - name: workflows
           connectionName: default.s3_shared
           targetDirectory: bank-mktg/mlops_pipeline/workflows
+        - name: train_model_sourcedir
+          connectionName: default.s3_shared
+          targetDirectory: bank-mktg/mlops_pipeline/src
+          compression: tar.gz
 
   prod:
     stage: PROD
@@ -154,3 +173,7 @@ stages:
         - name: workflows
           connectionName: default.s3_shared
           targetDirectory: bank-mktg/mlops_pipeline/workflows
+        - name: train_model_sourcedir
+          connectionName: default.s3_shared
+          targetDirectory: bank-mktg/mlops_pipeline/src
+          compression: tar.gz
