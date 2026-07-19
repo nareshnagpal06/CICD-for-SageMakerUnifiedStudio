@@ -1,9 +1,9 @@
 # =============================================================================
 # MLOps Pipeline - SageMaker Airflow Operators
 # =============================================================================
-# End-to-end ML pipeline using SageMaker Airflow operators:
-#   SageMakerTrainingOperator, SageMakerModelOperator,
-#   SageMakerTransformOperator, SageMakerEndpointOperator
+# End-to-end ML pipeline using Airflow operators:
+#   GlueJobOperator, SageMakerTrainingOperator, SageMakerProcessingOperator,
+#   SageMakerRegisterModelVersionOperator
 #
 # Project layout:
 #   src/           - Training script, feature engineering (Glue), notebooks
@@ -29,10 +29,11 @@ content:
 
     # Script-mode source bundle for the training_pipeline `train_model` task
     # (SageMakerTrainingOperator). Packaged into train_model_sourcedir.tar.gz at
-    # deploy time (see deployment_configuration.storage below) and referenced by
-    # that task's sagemaker_submit_directory. Named per-job and scoped to just
-    # its entry script + requirements, so each script-mode job gets its own
-    # bundle rather than a shared "sourcedir".
+    # deploy time and referenced by that task's sagemaker_submit_directory.
+    # Only deployed in the dev stage (see deployment_configuration.storage) —
+    # test/prod run only deploy_pipeline, which reads src/ directly and never
+    # uses this bundle. Named per-job and scoped to just its entry script +
+    # requirements so each script-mode job gets its own bundle.
     - name: train_model_sourcedir
       include:
         - "src/train_xgboost.py"
@@ -41,10 +42,6 @@ content:
     - name: workflows
       include:
         - "workflows/"
-
-    - name: notebooks
-      include:
-        - "src/notebooks/"
 
   workflows:
     - workflowName: training_pipeline
@@ -62,8 +59,6 @@ stages:
     project:
       name: ${DEV_PROJECT_NAME:e2e-data-ml-ops-dev}
     environment_variables:
-      ATHENA_DB_NAME: bank_mktg_dev
-      EXPERIMENT_NAME: bank-mktg-experiments
       ENDPOINT_NAME: bank-mktg-prediction-dev
       MLFLOW_TRACKING_SERVER_NAME: "${MLFLOW_TRACKING_SERVER_NAME:smus-integration-mlflow-us-east-1}"
       MODEL_PACKAGE_ARN: "${MODEL_PACKAGE_ARN:none}"
@@ -105,8 +100,6 @@ stages:
     project:
       name: ${TEST_PROJECT_NAME:e2e-data-ml-ops-test}
     environment_variables:
-      ATHENA_DB_NAME: bank_mktg_test
-      EXPERIMENT_NAME: bank-mktg-experiments
       ENDPOINT_NAME: bank-mktg-prediction-test
       MLFLOW_TRACKING_SERVER_NAME: "${MLFLOW_TRACKING_SERVER_NAME:smus-integration-mlflow-us-east-1}"
       MODEL_PACKAGE_ARN: "${MODEL_PACKAGE_ARN:none}"
@@ -132,10 +125,6 @@ stages:
         - name: workflows
           connectionName: default.s3_shared
           targetDirectory: bank-mktg/mlops_pipeline/workflows
-        - name: train_model_sourcedir
-          connectionName: default.s3_shared
-          targetDirectory: bank-mktg/mlops_pipeline/src
-          compression: tar.gz
 
   prod:
     stage: PROD
@@ -146,8 +135,6 @@ stages:
     project:
       name: ${PROD_PROJECT_NAME:e2e-data-ml-ops-prod}
     environment_variables:
-      ATHENA_DB_NAME: bank_mktg_prod
-      EXPERIMENT_NAME: bank-mktg-experiments
       ENDPOINT_NAME: bank-mktg-prediction-prod
       MLFLOW_TRACKING_SERVER_NAME: "${MLFLOW_TRACKING_SERVER_NAME:smus-integration-mlflow-us-east-1}"
       MODEL_PACKAGE_ARN: "${MODEL_PACKAGE_ARN:none}"
@@ -173,7 +160,3 @@ stages:
         - name: workflows
           connectionName: default.s3_shared
           targetDirectory: bank-mktg/mlops_pipeline/workflows
-        - name: train_model_sourcedir
-          connectionName: default.s3_shared
-          targetDirectory: bank-mktg/mlops_pipeline/src
-          compression: tar.gz
