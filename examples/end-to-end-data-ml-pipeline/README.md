@@ -2,11 +2,11 @@
 
 ## Overview
 
-> **Note:** This is a reference example. To run it, copy it into **your own GitHub repository and AWS account**, then configure the GitHub secrets/variables and OIDC role there (see [Deployment & Configuration](#deployment--configuration)). The workflows under `.github/workflows/` exist to exercise and demonstrate the deploy/promote pattern in this repo — they are not meant to be edited by consumers.
+> **Note:** This is a reference example. To run it, copy it into **your own GitHub repository and AWS account**, then configure the GitHub secrets/variables and OIDC role there (see [Deployment & Configuration](#deployment--configuration)). The workflows under `.github/workflows/` exist to exercise and demonstrate the deploy/promote pattern in this repo.
 
-This project provides a framework for deploying end-to-end data and ML pipelines to Amazon SageMaker Unified Studio using the [`aws-smus-cicd-cli`](https://github.com/aws/CICD-for-SageMakerUnifiedStudio). One manifest format. One CLI. One CI/CD pattern — whether you're ingesting raw data with Glue ETL or training an XGBoost model with SageMaker.
+This example demonstrates deploying end-to-end data and ML pipelines to Amazon SageMaker Unified Studio using the [`aws-smus-cicd-cli`](https://github.com/aws/CICD-for-SageMakerUnifiedStudio). One manifest format. One CLI. One CI/CD pattern — whether you're ingesting raw data with Glue ETL or training an XGBoost model with SageMaker.
 
-It includes three production-ready example pipelines that form a data lineage chain:
+It includes three example pipelines that form a data lineage chain:
 
 - **DataOps** — ingests, transforms, and validates bank marketing data using Glue and Athena
 - **MLOps** — trains, evaluates, and registers an XGBoost binary classifier using SageMaker Airflow operators
